@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="24" fill="#0e8a8a"/>
+  <text x="64" y="86" font-family="monospace" font-size="72" font-weight="700" text-anchor="middle" fill="#ffffff">Q</text>
+</svg>

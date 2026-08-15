@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 13px;
+}
+
+/* Scrollbar styling to match VS Code */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--vscode-scrollbarSlider-hoverBackground); }
+
+/* Confidence bar */
+.confidence-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--vscode-editorWidget-background);
+  overflow: hidden;
+}
+.confidence-bar > div {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+/* Result table */
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+.result-table th, .result-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.result-table th {
+  background: var(--vscode-editorWidget-background);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+.result-table tr:hover td {
+  background: var(--vscode-list-hoverBackground);
+}
+.pii-cell {
+  background: rgba(244, 124, 124, 0.08);
+  font-style: italic;
+}
+
+/* Annotation gutter */
+.gutter-icon {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 4px;
+  cursor: pointer;
+}
+.gutter-icon.unresolved { background: #d4a017; }
+.gutter-icon.resolved   { background: #4ec9b0; opacity: 0.4; }
+
+/* Tree nodes */
+.tree-node {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  min-width: 220px;
+  font-size: 12px;
+}
+.tree-node.success  { border-color: #4ec9b0; }
+.tree-node.failed   { border-color: #f14c4c; }
+.tree-node.warning  { border-color: #d4a017; }
+.tree-node.unexecuted { opacity: 0.7; }

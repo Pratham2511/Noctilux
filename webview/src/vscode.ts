@@ -1,0 +1,48 @@
+// ============================================================================
+// vscode.ts — acquireVsCodeApi wrapper + typed postMessage helpers
+// ============================================================================
+import type { WebviewMessage, WebviewMessageType } from '../../../src/types';
+
+declare global {
+  interface Window {
+    acquireVsCodeApi?: () => VsCodeApi;
+  }
+}
+
+interface VsCodeApi {
+  getState: <T>() => T;
+  setState: <T>(state: T) => void;
+  postMessage: (msg: WebviewMessage) => void;
+}
+
+const vscode = window.acquireVsCodeApi ? window.acquireVsCodeApi() : null;
+
+if (!vscode) {
+  console.warn('[QueryMind] Not running inside VS Code webview — using mock.');
+}
+
+export function postMessage(
+  type: WebviewMessageType,
+  payload: unknown,
+  requestId?: string
+): void {
+  const msg: WebviewMessage = { type, payload, requestId };
+  if (vscode) {
+    vscode.postMessage(msg);
+  } else {
+    // Mock for browser dev
+    console.log('[mock postMessage]', msg);
+  }
+}
+
+export function onMessage(handler: (msg: WebviewMessage) => void): () => void {
+  const listener = (event: MessageEvent) => handler(event.data as WebviewMessage);
+  window.addEventListener('message', listener);
+  return () => window.removeEventListener('message', listener);
+}
+
+export function genRequestId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export { vscode };

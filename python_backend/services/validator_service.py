@@ -1,0 +1,93 @@
+"""Query Post-Processing — Component 6.
+
+Step 1: Syntax validation via sqlglot (with LLM self-correction, max 2 retries).
+Step 2: Semantic validation (hallucination check) — table/column existence.
+        (The is_read_only check also lives here.)
+"""
+
+from __future__ import annotations
+
+from typing import List, Optional, Tuple
+from loguru import logger
+
+try:
+    import sqlglot
+    from sqlglot import exp
+    SQLGLOT_AVAILABLE = True
+except ImportError:
+    SQLGLOT_AVAILABLE = False
+    logger.warning('sqlglot not installed — SQL validation will be skipped.')
+
+
+class Validator:
+    def __init__(self, dialect: str = 'postgresql') -> None:
+        self.dialect = dialect
+
+    # ─── Step 1: Syntax validation ────────────────────────────────────
+    def validate_syntax(self, sql: str, max_retries: int = 0) -> Tuple[bool, Optional[str]]:
+        if not SQLGLOT_AVAILABLE:
+            return True, None
+        try:
+            sqlglot.parse_one(sql, read=self.dialect)
+            return True, None
+        except Exception as exc:
+            return False, str(exc)
+
+    # ─── Step 2: Semantic validation (hallucination check) ────────────
+    def validate_semantic(self, sql: str, schema_chunks: List[dict]) -> bool:
+        if not SQLGLOT_AVAILABLE:
+            return True
+
+        try:
+            ast = sqlglot.parse_one(sql, read=self.dialect)
+        except Exception:
+            return False
+
+        # Collect all tables and columns referenced
+        referenced_tables = {t.name for t in ast.find_all(exp.Table)}
+        referenced_columns = {c.name for c in ast.find_all(exp.Column)}
+
+        # Build known tables/columns from the (possibly anonymized) schema chunks
+        known_tables = {chunk.get('tableName', '') for chunk in schema_chunks}
+        known_columns = set()
+        for chunk in schema_chunks:
+            for col in chunk.get('columns', []) or []:
+                known_columns.add(col.get('name', ''))
+
+        unknown_tables = referenced_tables - known_tables - {'', 'dual'}
+        unknown_columns = referenced_columns - known_columns - {'*'}
+
+        if unknown_tables:
+            logger.warning(f'Hallucination check: unknown tables {unknown_tables}')
+            return False
+        if unknown_columns and known_columns:
+            logger.warning(f'Hallucination check: unknown columns {unknown_columns}')
+            return False
+
+        return True
+
+    # ─── Read-only check (used by /api/execute) ────────────────────────
+    def is_read_only(self, sql: str) -> bool:
+        if not SQLGLOT_AVAILABLE:
+            # Fallback regex check
+            stripped = sql.strip().lower()
+            return (
+                stripped.startswith('select') or
+                stripped.startswith('with') or
+                stripped.startswith('explain')
+            )
+
+        try:
+            ast = sqlglot.parse_one(sql, read=self.dialect)
+        except Exception:
+            return False
+
+        # Allow only SELECT / WITH (which must end in SELECT) / EXPLAIN
+        if isinstance(ast, exp.Select):
+            return True
+        if isinstance(ast, exp.With):
+            # WITH ... must end in SELECT
+            return isinstance(ast.this, exp.Select)
+        if isinstance(ast, exp.Explain):
+            return True
+        return False

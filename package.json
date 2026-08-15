@@ -1,0 +1,205 @@
+{
+  "name": "querymind",
+  "displayName": "QueryMind — Intelligent Database Assistant",
+  "description": "LLM-based NL→SQL assistant with 18 novel research contributions: privacy shield, disambiguation memory, schema impact prediction, query genealogy DAG, and more.",
+  "version": "3.0.0",
+  "publisher": "querymind-research",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Data Science",
+    "Other"
+  ],
+  "keywords": [
+    "nl2sql",
+    "text-to-sql",
+    "database",
+    "llm",
+    "rag",
+    "privacy",
+    "schema",
+    "query-optimization"
+  ],
+  "icon": "media/icon.svg",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "querymind-explorer",
+          "title": "QueryMind",
+          "icon": "media/sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "querymind-explorer": [
+        {
+          "id": "querymind.connections",
+          "name": "Connections"
+        },
+        {
+          "id": "querymind.schema",
+          "name": "Schema"
+        },
+        {
+          "id": "querymind.history",
+          "name": "Recent Queries"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "querymind.openChat",
+        "title": "QueryMind: Open Chat Panel",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.runLastQuery",
+        "title": "QueryMind: Run Last Query",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.showSchema",
+        "title": "QueryMind: Show Schema / ER Diagram",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.openQueryTree",
+        "title": "QueryMind: Open Query Tree (DAG)",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.addConnection",
+        "title": "QueryMind: Add Database Connection",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.runRobustnessTest",
+        "title": "QueryMind: Run Schema Evolution Robustness Test",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.restartBackend",
+        "title": "QueryMind: Restart Python Backend",
+        "category": "QueryMind"
+      },
+      {
+        "command": "querymind.openGlossaryEditor",
+        "title": "QueryMind: Open Business Glossary Editor",
+        "category": "QueryMind"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "querymind.openChat",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q"
+      },
+      {
+        "command": "querymind.runLastQuery",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r"
+      },
+      {
+        "command": "querymind.showSchema",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s"
+      },
+      {
+        "command": "querymind.openQueryTree",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t"
+      }
+    ],
+    "configuration": {
+      "title": "QueryMind",
+      "properties": {
+        "querymind.llm.mode": {
+          "type": "string",
+          "enum": ["cloud", "local", "auto"],
+          "default": "auto",
+          "description": "LLM routing mode: cloud (Llama 3 / Mistral API), local (Ollama), or auto (cloud-first with local fallback)."
+        },
+        "querymind.llm.cloudEndpoint": {
+          "type": "string",
+          "default": "https://api.example.com/v1/chat/completions",
+          "description": "Cloud LLM API endpoint URL."
+        },
+        "querymind.llm.cloudModel": {
+          "type": "string",
+          "default": "llama-3-70b-instruct",
+          "description": "Cloud model identifier."
+        },
+        "querymind.llm.localModel": {
+          "type": "string",
+          "default": "mistral:7b",
+          "description": "Ollama local model tag."
+        },
+        "querymind.privacy.enableShield": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable schema anonymization when using cloud LLM mode."
+        },
+        "querymind.execution.rowLimit": {
+          "type": "number",
+          "default": 500,
+          "maximum": 10000,
+          "description": "Maximum rows returned per query execution."
+        },
+        "querymind.execution.timeoutSeconds": {
+          "type": "number",
+          "default": 60,
+          "description": "Query execution timeout in seconds."
+        },
+        "querymind.execution.readOnlyByDefault": {
+          "type": "boolean",
+          "default": true,
+          "description": "Block INSERT / UPDATE / DELETE / DROP unless write mode explicitly enabled."
+        },
+        "querymind.backend.startPort": {
+          "type": "number",
+          "default": 8765,
+          "description": "First port to attempt for the Python backend."
+        },
+        "querymind.backend.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python interpreter to use when launching the backend."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile && npm run build:webview",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:webview": "cd webview && npm run build",
+    "watch:webview": "cd webview && npm run dev",
+    "lint": "eslint src --ext ts",
+    "test": "vitest run",
+    "package": "vsce package --no-yarn"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0",
+    "@vscode/test-cli": "^0.0.9",
+    "@vscode/test-electron": "^2.4.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
