@@ -2,23 +2,28 @@
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from fastapi import APIRouter, Request, HTTPException
 from loguru import logger
+from pydantic import BaseModel
 
-from models.requests import ImpactRequest, ImpactResponse
 from services.schema_impact import SchemaImpactPredictor
 
 router = APIRouter()
 
 
-@router.post('/impact', response_model=ImpactResponse)
-async def analyze_impact(req: ImpactRequest, request: Request) -> ImpactResponse:
+class ImpactRequest(BaseModel):
+    proposed_ddl: str
+    schema_context: str = ''
+
+
+@router.post('/impact')
+async def analyze_impact(req: ImpactRequest, request: Request) -> Dict[str, Any]:
     state = request.app.state.qm
     predictor = SchemaImpactPredictor(state.history_store)
     try:
-        impact = predictor.predict(req.ddl, req.dbConfigId)
+        impact = predictor.predict(req.proposed_ddl, db_config_id='default')
         return impact
     except Exception as exc:
         logger.error(f'Impact analysis failed: {exc}')

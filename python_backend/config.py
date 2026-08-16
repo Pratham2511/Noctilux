@@ -1,4 +1,4 @@
-"""QueryMind backend configuration.
+"""Noctilux backend configuration.
 
 Reads from CLI args, env vars, and an optional .env file. Settings flow:
 
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
 
 
 def parse_args() -> Settings:
-    parser = argparse.ArgumentParser(description='QueryMind FastAPI backend')
+    parser = argparse.ArgumentParser(description='Noctilux FastAPI backend')
     parser.add_argument('--port', type=int, default=None)
     parser.add_argument('--workspace', type=Path, default=None)
     parser.add_argument('--host', type=str, default=None)

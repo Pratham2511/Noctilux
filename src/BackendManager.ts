@@ -66,14 +66,14 @@ export class BackendManager extends EventEmitter {
 
     this.process.on('exit', (code, signal) => {
       const wasReady = this.status.state === 'ready';
-      console.warn(`[QueryMind] Python backend exited: code=${code} signal=${signal}`);
+      console.warn(`[Noctilux] Python backend exited: code=${code} signal=${signal}`);
       if (wasReady) {
         this.handleCrash();
       }
     });
 
     this.process.stderr?.on('data', (chunk: Buffer) => {
-      console.error(`[QueryMind backend stderr] ${chunk.toString()}`);
+      console.error(`[Noctilux backend stderr] ${chunk.toString()}`);
     });
 
     // Health check polling
@@ -86,7 +86,7 @@ export class BackendManager extends EventEmitter {
         lastError: 'Health check timeout — backend failed to start within 10s.',
       });
       vscode.window.showErrorMessage(
-        'QueryMind backend failed to start. Click "Restart Backend" to retry.',
+        'Noctilux backend failed to start. Click "Restart Backend" to retry.',
         'Restart Backend'
       ).then(action => {
         if (action === 'Restart Backend') this.restart();
@@ -119,13 +119,13 @@ export class BackendManager extends EventEmitter {
     this.crashTimestamps.push(now);
 
     if (this.crashTimestamps.length === 1) {
-      console.warn('[QueryMind] Auto-restarting backend (first crash)...');
+      console.warn('[Noctilux] Auto-restarting backend (first crash)...');
       await new Promise(r => setTimeout(r, 1000));
       await this.start();
     } else {
       this.setStatus({ state: 'crashed', lastError: 'Backend crashed twice within 30s. Manual restart required.' });
       vscode.window.showErrorMessage(
-        'QueryMind backend crashed twice within 30s. Click "Restart Backend" to retry manually.',
+        'Noctilux backend crashed twice within 30s. Click "Restart Backend" to retry manually.',
         'Restart Backend'
       ).then(action => {
         if (action === 'Restart Backend') this.restart();

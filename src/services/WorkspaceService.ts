@@ -43,7 +43,7 @@ export class WorkspaceService {
       }
     } catch (err) {
       vscode.window.showWarningMessage(
-        `QueryMind: Could not initialize .qmind/ at ${this.qmindPath}: ${(err as Error).message}`
+        `Noctilux: Could not initialize .qmind/ at ${this.qmindPath}: ${(err as Error).message}`
       );
     }
   }

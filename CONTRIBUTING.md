@@ -1,12 +1,12 @@
-# QueryMind — VS Code Extension Development Notes
+# Noctilux — VS Code Extension Development Notes
 
-This file collects notes for contributors and developers extending QueryMind.
+This file collects notes for contributors and developers extending Noctilux.
 
 ## Dev Workflow
 
 ```bash
 # Terminal 1: Watch TypeScript (extension host)
-cd querymind
+cd noctilux
 npm run watch
 
 # Terminal 2: Watch React webview (Vite)
@@ -23,7 +23,7 @@ code --extensionDevelopmentPath=$(pwd)
 
 ## Debugging the Python Backend
 
-The backend logs to stderr (visible in VS Code Output panel → "QueryMind" channel).
+The backend logs to stderr (visible in VS Code Output panel → "Noctilux" channel).
 For verbose logs:
 
 ```bash

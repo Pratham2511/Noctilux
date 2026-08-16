@@ -40,13 +40,21 @@ export class BackendClient {
     return this.requestJson('/api/health', 'GET');
   }
 
-  // ─── NL → SQL Generation ─────────────────────────────────────────────
+  // ─── NL → SQL/NoSQL Generation ─────────────────────────────────────────
+  //
+  // `api_key` and `provider` are resolved by the caller (NoctiluxPanel.ts)
+  // via SecretsService.getActiveApiKey() and VS Code's `noctilux.llm.provider`
+  // setting, then forwarded to the Python backend, which uses them for the
+  // actual Gemini / Groq / Ollama API call. No API key is ever stored on
+  // the Python side.
   async generate(payload: {
     nlInput: string;
     dbConfigId: string;
     sessionId: string;
     llmMode?: 'cloud' | 'local' | 'auto';
     disambiguationAnswers?: Record<string, string>;
+    apiKey?: string;     // resolved from SecretStorage by caller
+    provider?: string;   // 'gemini' | 'groq' | 'local' — from noctilux.llm.provider
   }): Promise<{
     sql: string;
     confidence: number;
@@ -57,7 +65,21 @@ export class BackendClient {
     ambiguityQuestions?: Array<{ id: string; question: string; options: string[] }>;
     queryNodeId?: string;
   }> {
-    return this.requestJson('/api/generate', 'POST', payload);
+    // Translate our internal field names to the Python backend's expected
+    // request body shape (per python_backend/models/requests.py).
+    const backendPayload = {
+      nl_query: payload.nlInput,
+      schema_context: payload.disambiguationAnswers
+        ? JSON.stringify(payload.disambiguationAnswers)
+        : '',
+      dialect: 'postgresql',
+      query_type: 'sql',
+      provider: payload.provider ?? 'gemini',
+      api_key: payload.apiKey ?? '',
+      session_id: payload.sessionId,
+      db_config_id: payload.dbConfigId,
+    };
+    return this.requestJson('/api/generate', 'POST', backendPayload);
   }
 
   // ─── SQL Execution ──────────────────────────────────────────────────

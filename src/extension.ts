@@ -2,18 +2,18 @@
 // extension.ts — VS Code Extension Activation Entry Point
 // src/extension.ts
 //
-// Activation sequence (per Part 1a of spec):
+// Activation sequence:
+//   0. Initialize SecretsService + first-run Gemini API key prompt
 //   1. Initialize WorkspaceService (.qmind/ folder)
-//   2. Initialize SecretsService (VS Code SecretStorage)
-//   3. Start BackendManager (Python subprocess on localhost)
-//   4. Register all commands and keybindings
-//   5. On deactivate: graceful backend shutdown
+//   2. Start BackendManager (Python subprocess on localhost)
+//   3. Register all commands (noctilux.*) and keybindings
+//   4. On deactivate: graceful backend shutdown
 // ============================================================================
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BackendManager } from './BackendManager';
-import { QueryMindPanel } from './panels/QueryMindPanel';
+import { NoctiluxPanel } from './panels/NoctiluxPanel';
 import { SchemaPanel } from './panels/SchemaPanel';
 import { QueryTreePanel } from './panels/QueryTreePanel';
 import { WorkspaceService } from './services/WorkspaceService';
@@ -24,27 +24,44 @@ let workspaceService: WorkspaceService | undefined;
 let secretsService: SecretsService | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.info('[QueryMind] Activating extension v3.0.0…');
+  console.info('[Noctilux] Activating extension v1.0.0…');
+
+  // ─── 0. Initialize SecretsService (VS Code SecretStorage) ─────────────
+  secretsService = new SecretsService(context);
+
+  // ── First-run API key prompt ──────────────────────────────────────
+  const existingKey = await secretsService.getGeminiKey();
+  if (!existingKey) {
+    const action = await vscode.window.showInformationMessage(
+      'Welcome to Noctilux! A free Gemini API key is needed to generate queries.',
+      'Set API Key',
+      'Get Free Key',
+      'Later'
+    );
+    if (action === 'Set API Key') {
+      await promptForApiKey(secretsService, 'gemini');
+    } else if (action === 'Get Free Key') {
+      vscode.env.openExternal(
+        vscode.Uri.parse('https://aistudio.google.com/app/apikey')
+      );
+    }
+  }
 
   // ─── 1. Determine workspace root ────────────────────────────────────
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
     vscode.window.showWarningMessage(
-      'QueryMind requires an open workspace folder. Open a folder and try again.'
+      'Noctilux requires an open workspace folder. Open a folder and try again.'
     );
     return;
   }
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
-  // ─── 2. Initialize services ──────────────────────────────────────────
+  // ─── 2. Initialize workspace service ──────────────────────────────────
   workspaceService = new WorkspaceService(workspaceRoot);
-  secretsService = new SecretsService(context.secrets);
-
-  // Ensure privacy salt exists (Novel Contribution #2 — Privacy Shield)
-  await secretsService.ensurePrivacySalt();
 
   // ─── 3. Read config & start backend ──────────────────────────────────
-  const config = vscode.workspace.getConfiguration('querymind');
+  const config = vscode.workspace.getConfiguration('noctilux');
   const pythonPath = config.get<string>('backend.pythonPath', 'python3');
   const startPort = config.get<number>('backend.startPort', 8765);
   const backendScriptPath = path.join(context.extensionPath, 'python_backend', 'main.py');
@@ -59,13 +76,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Fire-and-forget — don't block activation on backend ready
   backendManager.start().then(status => {
     vscode.window.setStatusBarMessage(
-      `QueryMind backend: ${status.state}${status.port ? ` (port ${status.port})` : ''}`,
+      `Noctilux backend: ${status.state}${status.port ? ` (port ${status.port})` : ''}`,
       3000
     );
   });
 
   backendManager.on('status', (status) => {
-    QueryMindPanel.currentPanel?.panel.webview.postMessage({
+    NoctiluxPanel.currentPanel?.panel.webview.postMessage({
       type: 'BACKEND_STATUS',
       payload: status,
     });
@@ -73,9 +90,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // ─── 4. Register commands ───────────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand('querymind.openChat', () => {
+
+    vscode.commands.registerCommand('noctilux.setApiKey', async () => {
+      const provider = await vscode.window.showQuickPick(
+        ['gemini', 'groq'],
+        { title: 'Which provider are you setting a key for?' }
+      );
+      if (provider) {
+        await promptForApiKey(secretsService, provider as 'gemini' | 'groq');
+      }
+    }),
+
+    vscode.commands.registerCommand('noctilux.clearApiKey', async () => {
+      const confirm = await vscode.window.showWarningMessage(
+        'Remove stored Noctilux API key?',
+        { modal: true },
+        'Remove'
+      );
+      if (confirm === 'Remove') {
+        await secretsService.deleteGeminiKey();
+        vscode.window.showInformationMessage('API key removed.');
+      }
+    }),
+
+    vscode.commands.registerCommand('noctilux.openChat', () => {
       if (!workspaceService || !secretsService || !backendManager) return;
-      QueryMindPanel.createOrShow(
+      NoctiluxPanel.createOrShow(
         context,
         backendManager.getClient(),
         workspaceService,
@@ -83,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
     }),
 
-    vscode.commands.registerCommand('querymind.runLastQuery', async () => {
+    vscode.commands.registerCommand('noctilux.runLastQuery', async () => {
       if (!workspaceService || !backendManager?.getClient()) return;
       const history = await workspaceService.readHistory();
       if (history.length === 0) {
@@ -102,17 +142,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
 
-    vscode.commands.registerCommand('querymind.showSchema', () => {
+    vscode.commands.registerCommand('noctilux.showSchema', () => {
       if (!backendManager) return;
       SchemaPanel.createOrShow(context, backendManager.getClient());
     }),
 
-    vscode.commands.registerCommand('querymind.openQueryTree', () => {
+    vscode.commands.registerCommand('noctilux.openQueryTree', () => {
       if (!workspaceService) return;
       QueryTreePanel.createOrShow(context, workspaceService);
     }),
 
-    vscode.commands.registerCommand('querymind.addConnection', async () => {
+    vscode.commands.registerCommand('noctilux.addConnection', async () => {
       if (!workspaceService || !secretsService) return;
       const name = await vscode.window.showInputBox({ prompt: 'Connection name', placeHolder: 'Production Postgres' });
       if (!name) return;
@@ -135,7 +175,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
       const id = crypto.randomUUID();
       if (password) {
-        await secretsService.setDbPassword(id, password);
+        await secretsService.storeDbPassword(id, password);
       }
       const cfg = await workspaceService.readConfig();
       cfg.connections.push({
@@ -146,7 +186,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);
     }),
 
-    vscode.commands.registerCommand('querymind.runRobustnessTest', async () => {
+    vscode.commands.registerCommand('noctilux.runRobustnessTest', async () => {
       if (!backendManager?.getClient() || !workspaceService) return;
       const history = await workspaceService.readHistory();
       if (history.length === 0) {
@@ -162,27 +202,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       vscode.window.showTextDocument(
         vscode.Uri.parse(
-          `querymind://robustness/${encodeURIComponent(JSON.stringify(report))}`
+          `noctilux://robustness/${encodeURIComponent(JSON.stringify(report))}`
         )
       );
     }),
 
-    vscode.commands.registerCommand('querymind.restartBackend', async () => {
+    vscode.commands.registerCommand('noctilux.restartBackend', async () => {
       if (!backendManager) return;
-      vscode.window.showInformationMessage('Restarting QueryMind backend…');
+      vscode.window.showInformationMessage('Restarting Noctilux backend…');
       await backendManager.restart();
     }),
 
-    vscode.commands.registerCommand('querymind.openGlossaryEditor', () => {
+    vscode.commands.registerCommand('noctilux.openGlossaryEditor', () => {
       if (!workspaceService || !backendManager) return;
-      QueryMindPanel.createOrShow(
+      NoctiluxPanel.createOrShow(
         context,
         backendManager.getClient(),
         workspaceService,
         secretsService!
       );
       // Switch webview to glossary tab via postMessage
-      QueryMindPanel.currentPanel?.panel.webview.postMessage({
+      NoctiluxPanel.currentPanel?.panel.webview.postMessage({
         type: 'GLOSSARY_SAVED',
         payload: { openEditor: true },
       });
@@ -191,7 +231,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // ─── 5. Register URI handler for robustness report ─────────────────
   context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider('querymind', {
+    vscode.workspace.registerTextDocumentContentProvider('noctilux', {
       provideTextDocumentContent(uri: vscode.Uri): string {
         const json = decodeURIComponent(uri.path.slice(1));
         try {
@@ -221,10 +261,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  console.info('[QueryMind] Extension activated successfully.');
+  console.info('[Noctilux] Extension activated successfully.');
 }
 
 export async function deactivate(): Promise<void> {
-  console.info('[QueryMind] Deactivating extension…');
+  console.info('[Noctilux] Deactivating extension…');
   await backendManager?.stop();
+}
+
+// ── Helper — reusable key prompt ─────────────────────────────────────
+async function promptForApiKey(
+  secrets: SecretsService,
+  provider: 'gemini' | 'groq'
+): Promise<void> {
+  const labels = {
+    gemini: {
+      title: 'Noctilux — Gemini API Key',
+      prompt: 'Free key at aistudio.google.com → Create API Key',
+      placeholder: 'AIzaSy...',
+      validator: (v: string) =>
+        v.startsWith('AIza') ? null : 'Gemini keys start with AIza'
+    },
+    groq: {
+      title: 'Noctilux — Groq API Key',
+      prompt: 'Free key at console.groq.com → API Keys',
+      placeholder: 'gsk_...',
+      validator: (v: string) =>
+        v.startsWith('gsk_') ? null : 'Groq keys start with gsk_'
+    }
+  };
+
+  const cfg = labels[provider];
+  const key = await vscode.window.showInputBox({
+    title: cfg.title,
+    prompt: cfg.prompt,
+    password: true,
+    ignoreFocusOut: true,
+    placeHolder: cfg.placeholder,
+    validateInput: cfg.validator
+  });
+
+  if (key) {
+    if (provider === 'gemini') { await secrets.storeGeminiKey(key); }
+    else { await secrets.storeGroqKey(key); }
+    vscode.window.showInformationMessage(
+      `✅ ${provider === 'gemini' ? 'Gemini' : 'Groq'} key saved securely.`
+    );
+  }
 }

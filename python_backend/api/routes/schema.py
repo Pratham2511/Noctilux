@@ -7,13 +7,11 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Request, HTTPException
 from loguru import logger
 
-from models.requests import SchemaResponse
-
 router = APIRouter()
 
 
-@router.get('/schema', response_model=SchemaResponse)
-async def get_schema(dbConfigId: str, request: Request) -> SchemaResponse:
+@router.get('/schema')
+async def get_schema(dbConfigId: str, request: Request) -> Dict[str, Any]:
     state = request.app.state.qm
     pool = state.db_pools.get(dbConfigId)
     if pool is None:
@@ -25,7 +23,7 @@ async def get_schema(dbConfigId: str, request: Request) -> SchemaResponse:
         import json
         cached = json.loads(cache_path.read_text())
         logger.info('Returning cached schema (use ?refresh=1 to force)')
-        return SchemaResponse(tables=cached, indexed=True)
+        return {'tables': cached, 'indexed': True}
 
     # Introspect via SQLAlchemy reflection
     from sqlalchemy import inspect, MetaData
@@ -63,8 +61,9 @@ async def get_schema(dbConfigId: str, request: Request) -> SchemaResponse:
                         col['isForeignKey'] = True
 
         try:
+            import sqlalchemy
             row_count = pool.connect().execute(
-                __import__('sqlalchemy').text(f'SELECT COUNT(*) FROM "{table_name}"')
+                sqlalchemy.text(f'SELECT COUNT(*) FROM "{table_name}"')
             ).scalar()
         except Exception:
             row_count = None
@@ -84,4 +83,4 @@ async def get_schema(dbConfigId: str, request: Request) -> SchemaResponse:
     # Index into ChromaDB (Novel #3a — Schema RAG)
     state.rag.index_schema(tables)
 
-    return SchemaResponse(tables=tables, indexed=True)
+    return {'tables': tables, 'indexed': True}

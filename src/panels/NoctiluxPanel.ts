@@ -1,6 +1,6 @@
 // ============================================================================
-// QueryMindPanel — Main webview panel (chat + SQL + results)
-// src/panels/QueryMindPanel.ts
+// NoctiluxPanel — Main webview panel (chat + SQL + results)
+// src/panels/NoctiluxPanel.ts
 //
 // Hosts the React webview that contains ChatPanel, SQLCodeBlock,
 // ResultTable, NarrativeCard, ConfidenceBar. All postMessage traffic
@@ -14,9 +14,9 @@ import { BackendClient } from '../services/BackendClient';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { SecretsService } from '../services/SecretsService';
 
-export class QueryMindPanel {
-  public static currentPanel: QueryMindPanel | undefined;
-  private static readonly viewType = 'querymind.panel';
+export class NoctiluxPanel {
+  public static currentPanel: NoctiluxPanel | undefined;
+  private static readonly viewType = 'noctilux.panel';
 
   private panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
@@ -26,14 +26,14 @@ export class QueryMindPanel {
     client: BackendClient | null,
     workspace: WorkspaceService,
     secrets: SecretsService
-  ): QueryMindPanel {
-    if (QueryMindPanel.currentPanel) {
-      QueryMindPanel.currentPanel.panel.reveal(vscode.ViewColumn.Two);
-      return QueryMindPanel.currentPanel;
+  ): NoctiluxPanel {
+    if (NoctiluxPanel.currentPanel) {
+      NoctiluxPanel.currentPanel.panel.reveal(vscode.ViewColumn.Two);
+      return NoctiluxPanel.currentPanel;
     }
     const panel = vscode.window.createWebviewPanel(
-      QueryMindPanel.viewType,
-      'QueryMind — Chat',
+      NoctiluxPanel.viewType,
+      'Noctilux — Chat',
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
@@ -43,8 +43,8 @@ export class QueryMindPanel {
         ],
       }
     );
-    QueryMindPanel.currentPanel = new QueryMindPanel(panel, context, client, workspace, secrets);
-    return QueryMindPanel.currentPanel;
+    NoctiluxPanel.currentPanel = new NoctiluxPanel(panel, context, client, workspace, secrets);
+    return NoctiluxPanel.currentPanel;
   }
 
   private constructor(
@@ -55,7 +55,7 @@ export class QueryMindPanel {
     private readonly secrets: SecretsService
   ) {
     this.panel = panel;
-    this.panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'media', 'icon.svg'));
+    this.panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'media', 'icon.png'));
     this.panel.webview.html = this.getHtml();
 
     // Handle messages from webview
@@ -70,6 +70,28 @@ export class QueryMindPanel {
 
   // ─── Message Routing ───────────────────────────────────────────────
   private async onMessage(msg: WebviewMessage): Promise<void> {
+    // ─── Handle settings / external-link messages WITHOUT requiring the
+    //     Python backend to be ready (these are pure host-side operations).
+    if (msg.type === 'STORE_API_KEY') {
+      const { provider, key } = msg.payload as { provider: 'gemini' | 'groq'; key: string };
+      if (provider === 'gemini') { await this.secrets.storeGeminiKey(key); }
+      if (provider === 'groq')   { await this.secrets.storeGroqKey(key); }
+      this.panel.webview.postMessage({
+        type: 'SETTINGS_UPDATED',
+        requestId: msg.requestId,
+        payload: { saved: true, provider },
+      });
+      return;
+    }
+    if (msg.type === 'OPEN_EXTERNAL') {
+      const url = msg.payload as string;
+      if (typeof url === 'string') {
+        vscode.env.openExternal(vscode.Uri.parse(url));
+      }
+      return;
+    }
+
+    // All remaining message types require the backend to be ready.
     if (!this.client) {
       this.sendError('Backend not ready yet. Please wait a moment and try again.');
       return;
@@ -88,11 +110,25 @@ export class QueryMindPanel {
           // Read preference memory to attach as context
           const memory = await this.workspace.readMemory();
 
+          // ── Resolve provider + API key from VS Code config + SecretStorage ──
+          const provider = vscode.workspace
+            .getConfiguration('noctilux')
+            .get<string>('llm.provider', 'gemini');
+          const apiKey = (await this.secrets.getActiveApiKey()) ?? '';
+          if (!apiKey && provider !== 'local') {
+            this.sendError(
+              `No ${provider} API key set. Run "Noctilux: Set Gemini API Key" first.`
+            );
+            return;
+          }
+
           const result = await this.client.generate({
             nlInput: payload.input,
             dbConfigId: payload.dbConfigId,
             sessionId: payload.sessionId,
             disambiguationAnswers: payload.disambiguationAnswers,
+            apiKey,
+            provider,
           });
 
           this.panel.webview.postMessage({
@@ -182,7 +218,7 @@ export class QueryMindPanel {
         }
 
         default:
-          console.warn(`[QueryMind] Unhandled message type: ${msg.type}`);
+          console.warn(`[Noctilux] Unhandled message type: ${msg.type}`);
       }
     } catch (err) {
       this.sendError((err as Error).message);
@@ -216,7 +252,7 @@ export class QueryMindPanel {
                  img-src ${this.panel.webview.cspSource} https:;
                  script-src 'nonce-${nonce}';
                  style-src ${this.panel.webview.cspSource} 'unsafe-inline';" />
-  <title>QueryMind</title>
+  <title>Noctilux</title>
   <link rel="stylesheet" href="${styleUri}" />
 </head>
 <body>
@@ -228,7 +264,7 @@ export class QueryMindPanel {
 
   // ─── Dispose ───────────────────────────────────────────────────────
   public dispose(): void {
-    QueryMindPanel.currentPanel = undefined;
+    NoctiluxPanel.currentPanel = undefined;
     this.panel.dispose();
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];

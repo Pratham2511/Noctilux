@@ -32,9 +32,9 @@ router = APIRouter()
 @router.post('/execute')
 async def execute(req: ExecuteRequest, request: Request) -> Dict[str, Any]:
     state = request.app.state.qm
-    pool = state.db_pools.get(req.dbConfigId)
+    pool = state.db_pools.get(req.connection_id)
     if pool is None:
-        raise HTTPException(404, detail=f'No DB connection registered for id={req.dbConfigId}')
+        raise HTTPException(404, detail=f'No DB connection registered for id={req.connection_id}')
 
     # ─── Read-only enforcement (Layer 1) ────────────────────────────────
     if state.settings.read_only_by_default:
@@ -47,9 +47,9 @@ async def execute(req: ExecuteRequest, request: Request) -> Dict[str, Any]:
             )
 
     # ─── Execute ────────────────────────────────────────────────────────
-    row_limit = min(req.rowLimit or state.settings.row_limit_default,
+    row_limit = min(req.row_limit or state.settings.row_limit_default,
                     state.settings.row_limit_max)
-    timeout = req.timeoutSeconds or state.settings.execution_timeout_seconds
+    timeout = state.settings.execution_timeout_seconds
 
     svc = ExecutionService(pool, timeout_seconds=timeout, row_limit=row_limit)
     try:

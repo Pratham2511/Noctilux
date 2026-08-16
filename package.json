@@ -1,29 +1,43 @@
 {
-  "name": "querymind",
-  "displayName": "QueryMind — Intelligent Database Assistant",
-  "description": "LLM-based NL→SQL assistant with 18 novel research contributions: privacy shield, disambiguation memory, schema impact prediction, query genealogy DAG, and more.",
-  "version": "3.0.0",
-  "publisher": "querymind-research",
+  "name": "noctilux-db-assistant",
+  "displayName": "Noctilux — Intelligent Database Assistant",
+  "description": "Natural language to SQL/NoSQL queries with AI. Connect any database, generate optimized queries, explain results, and track query history — all inside VS Code.",
+  "version": "1.0.0",
+  "publisher": "pratham2511",
   "license": "MIT",
-  "engines": {
-    "vscode": "^1.85.0"
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pratham2511/Noctilux"
   },
+  "bugs": {
+    "url": "https://github.com/Pratham2511/Noctilux/issues"
+  },
+  "homepage": "https://github.com/Pratham2511/Noctilux#readme",
   "categories": [
-    "Machine Learning",
+    "AI",
     "Data Science",
     "Other"
   ],
   "keywords": [
-    "nl2sql",
-    "text-to-sql",
+    "sql",
     "database",
-    "llm",
-    "rag",
-    "privacy",
-    "schema",
-    "query-optimization"
+    "ai",
+    "natural language",
+    "gemini",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "query",
+    "nlp"
   ],
-  "icon": "media/icon.svg",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "galleryBanner": {
+    "color": "#0A0F1E",
+    "theme": "dark"
+  },
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -32,143 +46,139 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "querymind-explorer",
-          "title": "QueryMind",
+          "id": "noctilux-explorer",
+          "title": "Noctilux",
           "icon": "media/sidebar.svg"
         }
       ]
     },
     "views": {
-      "querymind-explorer": [
+      "noctilux-explorer": [
         {
-          "id": "querymind.connections",
+          "id": "noctilux.connections",
           "name": "Connections"
         },
         {
-          "id": "querymind.schema",
+          "id": "noctilux.schema",
           "name": "Schema"
         },
         {
-          "id": "querymind.history",
+          "id": "noctilux.history",
           "name": "Recent Queries"
         }
       ]
     },
     "commands": [
       {
-        "command": "querymind.openChat",
-        "title": "QueryMind: Open Chat Panel",
-        "category": "QueryMind"
+        "command": "noctilux.openChat",
+        "title": "Noctilux: Open Chat Panel"
       },
       {
-        "command": "querymind.runLastQuery",
-        "title": "QueryMind: Run Last Query",
-        "category": "QueryMind"
+        "command": "noctilux.setApiKey",
+        "title": "Noctilux: Set Gemini API Key"
       },
       {
-        "command": "querymind.showSchema",
-        "title": "QueryMind: Show Schema / ER Diagram",
-        "category": "QueryMind"
+        "command": "noctilux.clearApiKey",
+        "title": "Noctilux: Remove API Key"
       },
       {
-        "command": "querymind.openQueryTree",
-        "title": "QueryMind: Open Query Tree (DAG)",
-        "category": "QueryMind"
+        "command": "noctilux.showSchema",
+        "title": "Noctilux: Show Schema & ER Diagram"
       },
       {
-        "command": "querymind.addConnection",
-        "title": "QueryMind: Add Database Connection",
-        "category": "QueryMind"
+        "command": "noctilux.openQueryTree",
+        "title": "Noctilux: Open Query Tree"
       },
       {
-        "command": "querymind.runRobustnessTest",
-        "title": "QueryMind: Run Schema Evolution Robustness Test",
-        "category": "QueryMind"
+        "command": "noctilux.runLastQuery",
+        "title": "Noctilux: Run Last Query"
       },
       {
-        "command": "querymind.restartBackend",
-        "title": "QueryMind: Restart Python Backend",
-        "category": "QueryMind"
+        "command": "noctilux.addConnection",
+        "title": "Noctilux: Add Database Connection"
       },
       {
-        "command": "querymind.openGlossaryEditor",
-        "title": "QueryMind: Open Business Glossary Editor",
-        "category": "QueryMind"
+        "command": "noctilux.runRobustnessTest",
+        "title": "Noctilux: Run Schema Evolution Robustness Test"
+      },
+      {
+        "command": "noctilux.restartBackend",
+        "title": "Noctilux: Restart Python Backend"
+      },
+      {
+        "command": "noctilux.openGlossaryEditor",
+        "title": "Noctilux: Open Business Glossary Editor"
       }
     ],
     "keybindings": [
       {
-        "command": "querymind.openChat",
+        "command": "noctilux.openChat",
         "key": "ctrl+shift+q",
         "mac": "cmd+shift+q"
       },
       {
-        "command": "querymind.runLastQuery",
+        "command": "noctilux.runLastQuery",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r"
       },
       {
-        "command": "querymind.showSchema",
+        "command": "noctilux.showSchema",
         "key": "ctrl+shift+s",
         "mac": "cmd+shift+s"
       },
       {
-        "command": "querymind.openQueryTree",
+        "command": "noctilux.openQueryTree",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t"
       }
     ],
     "configuration": {
-      "title": "QueryMind",
+      "title": "Noctilux",
       "properties": {
-        "querymind.llm.mode": {
+        "noctilux.llm.provider": {
           "type": "string",
-          "enum": ["cloud", "local", "auto"],
-          "default": "auto",
-          "description": "LLM routing mode: cloud (Llama 3 / Mistral API), local (Ollama), or auto (cloud-first with local fallback)."
+          "enum": ["gemini", "groq", "local"],
+          "default": "gemini",
+          "description": "LLM provider. Gemini is recommended (free tier available)."
         },
-        "querymind.llm.cloudEndpoint": {
+        "noctilux.llm.geminiModel": {
           "type": "string",
-          "default": "https://api.example.com/v1/chat/completions",
-          "description": "Cloud LLM API endpoint URL."
+          "default": "gemini-2.5-flash",
+          "description": "Gemini model to use. Default is gemini-2.5-flash (free tier)."
         },
-        "querymind.llm.cloudModel": {
+        "noctilux.llm.groqModel": {
           "type": "string",
-          "default": "llama-3-70b-instruct",
-          "description": "Cloud model identifier."
+          "default": "llama-3.3-70b-versatile",
+          "description": "Groq model to use when provider is set to groq."
         },
-        "querymind.llm.localModel": {
-          "type": "string",
-          "default": "mistral:7b",
-          "description": "Ollama local model tag."
-        },
-        "querymind.privacy.enableShield": {
+        "noctilux.privacy.enableShield": {
           "type": "boolean",
           "default": true,
-          "description": "Enable schema anonymization when using cloud LLM mode."
+          "description": "Anonymize schema names before sending to cloud LLM."
         },
-        "querymind.execution.rowLimit": {
+        "noctilux.query.rowLimit": {
           "type": "number",
           "default": 500,
+          "minimum": 10,
           "maximum": 10000,
           "description": "Maximum rows returned per query execution."
         },
-        "querymind.execution.timeoutSeconds": {
+        "noctilux.execution.timeoutSeconds": {
           "type": "number",
           "default": 60,
           "description": "Query execution timeout in seconds."
         },
-        "querymind.execution.readOnlyByDefault": {
+        "noctilux.execution.readOnlyByDefault": {
           "type": "boolean",
           "default": true,
           "description": "Block INSERT / UPDATE / DELETE / DROP unless write mode explicitly enabled."
         },
-        "querymind.backend.startPort": {
+        "noctilux.backend.startPort": {
           "type": "number",
           "default": 8765,
           "description": "First port to attempt for the Python backend."
         },
-        "querymind.backend.pythonPath": {
+        "noctilux.backend.pythonPath": {
           "type": "string",
           "default": "python3",
           "description": "Python interpreter to use when launching the backend."

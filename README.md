@@ -1,37 +1,45 @@
-# 🧠 QueryMind — Intelligent Database Assistant (VS Code Extension)
+# 🌙 Noctilux — Intelligent Database Assistant (VS Code Extension)
 
-**Codename:** QueryMind · **Version:** 3.0 · **License:** MIT
+**Publisher:** pratham2511 · **Version:** 1.0.0 · **License:** MIT
+**Repository:** https://github.com/Pratham2511/Noctilux
 
 > *Eliminate the barrier between human intent and database insight by transforming natural language into precise, optimized, safe, and explainable database operations — with team collaboration and enterprise-grade privacy — entirely within the developer's workspace.*
 
-QueryMind is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
+Noctilux is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
-This repository implements the full 3.0 specification, including **18 novel research contributions** grounded in a post-analysis of 40+ papers (2024–2026) on NL2SQL, RAG, query optimization, schema evolution, privacy, and database tooling.
+The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
 
 ---
 
 ## 📦 Repository Layout
 
 ```
-querymind/
-├── package.json                  # VS Code extension manifest
+noctilux/
+├── package.json                  # VS Code extension manifest (marketplace-ready)
 ├── tsconfig.json
-├── .vscodeignore
+├── .vscodeignore                 # Excludes src/, webview/src/, python_backend/
 ├── .gitignore
+├── CHANGELOG.md                  # [1.0.0] — 2026-08-16
+├── LICENSE                       # MIT
 ├── README.md                     # ← this file
+├── CONTRIBUTING.md
+├── media/
+│   ├── icon.png                  # 128×128 marketplace icon (add manually)
+│   ├── icon.svg                  # source SVG
+│   └── sidebar.svg               # 16×16 activity-bar icon
 │
 ├── src/                          # Extension host (TypeScript, runs in Node.js)
-│   ├── extension.ts              # Activation entry point, command registration
+│   ├── extension.ts              # Activation: first-run API key prompt + command registration
 │   ├── BackendManager.ts         # Python subprocess lifecycle (start/stop/restart)
 │   ├── panels/
-│   │   ├── QueryMindPanel.ts     # Main webview (chat + SQL + results)
+│   │   ├── NoctiluxPanel.ts     # Main webview (chat + SQL + results)
 │   │   ├── SchemaPanel.ts        # Schema explorer + ER diagram viewer
 │   │   └── QueryTreePanel.ts     # ReactFlow DAG panel
 │   ├── services/
-│   │   ├── SecretsService.ts     # VS Code SecretStorage wrapper
+│   │   ├── SecretsService.ts     # Gemini / Groq / DB-password storage (OS keychain)
 │   │   ├── WorkspaceService.ts   # .qmind/ file I/O
-│   │   └── BackendClient.ts      # HTTP client for Python backend
-│   └── types/index.ts            # All shared TypeScript interfaces
+│   │   └── BackendClient.ts      # HTTP client (forwards api_key + provider to backend)
+│   └── types/index.ts            # Shared TypeScript interfaces + WebviewMessageType union
 │
 ├── webview/                      # React app (Vite-bundled, runs in webview sandbox)
 │   ├── package.json
@@ -42,9 +50,9 @@ querymind/
 │   ├── index.html
 │   └── src/
 │       ├── main.tsx
-│       ├── App.tsx               # Routes between Chat / Schema / Tree / Glossary / Robustness / Connections
-│       ├── index.css             # Tailwind + custom QueryMind styles
-│       ├── vscode.ts             # acquireVsCodeApi wrapper + postMessage helpers
+│       ├── App.tsx               # Routes Chat / Schema / Tree / Glossary / Robustness / Connections
+│       ├── index.css             # Tailwind + custom Noctilux styles
+│       ├── vscode.ts             # acquireVsCodeApi + postMessage helpers + useVsCode() hook
 │       └── components/
 │           ├── ChatPanel.tsx
 │           ├── MessageBubble.tsx
@@ -55,28 +63,29 @@ querymind/
 │           ├── QueryTreeView.tsx      # ReactFlow DAG (Novel #14)
 │           ├── GlossaryEditor.tsx      # Novel Contribution #10
 │           ├── ConnectionForm.tsx
+│           ├── ApiKeySettings.tsx      # ← Gemini + Groq API key entry UI
 │           └── RobustnessReport.tsx    # Novel Contribution #16
 │
 └── python_backend/               # Core intelligence engine (Python 3.11+, FastAPI)
     ├── main.py                   # FastAPI app, lifespan, binds 127.0.0.1:8765
-    ├── requirements.txt
+    ├── requirements.txt           # >= constraints, all deps pinned
     ├── config.py                 # Pydantic BaseSettings
     ├── api/
     │   ├── dependencies.py       # DB pool, LLM, ChromaDB client wiring
     │   └── routes/
     │       ├── health.py
-    │       ├── generate.py       # POST /api/generate
+    │       ├── generate.py       # POST /api/generate (forwards api_key + provider to LLM)
     │       ├── execute.py        # POST /api/execute
     │       ├── schema.py         # GET  /api/schema
     │       ├── impact.py         # POST /api/schema/impact
     │       ├── robustness.py     # POST /api/robustness
     │       └── glossary.py       # GET/POST /api/glossary
     ├── models/
-    │   └── requests.py           # Pydantic models mirroring TS types
+    │   └── requests.py           # GenerateRequest with provider + api_key fields
     ├── services/                 # 18 backend services
+    │   ├── llm_service.py        # ← AsyncOpenAI: Gemini / Groq / Ollama
     │   ├── intent_service.py
     │   ├── ambiguity_service.py
-    │   ├── llm_service.py
     │   ├── privacy_shield.py
     │   ├── rag_service.py
     │   ├── sql_generator.py
@@ -99,6 +108,42 @@ querymind/
         ├── history_store.py
         └── db_pool.py
 ```
+
+---
+
+## 🔑 Setting Your Gemini API Key
+
+Noctilux needs a free Gemini API key to generate SQL queries. There are three ways to enter it:
+
+### Option A — First-run welcome prompt
+
+On the very first activation, Noctilux shows an information message:
+
+> *Welcome to Noctilux! A free Gemini API key is needed to generate queries.*
+
+Click **Set API Key** to paste your key directly, or **Get Free Key** to open [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) in your browser.
+
+### Option B — From the Command Palette
+
+Run **`Noctilux: Set Gemini API Key`** from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`). You'll be asked which provider (`gemini` or `groq`) you're setting a key for, then prompted to paste it.
+
+Validators enforce the standard key prefixes:
+- **Gemini** keys must start with `AIza`
+- **Groq** keys must start with `gsk_`
+
+### Option C — From the Webview Settings Panel
+
+Open the **Connections** tab in the Noctilux webview. The **API Keys** card at the top lets you paste your Gemini or Groq key into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
+
+### Removing the key
+
+Run **`Noctilux: Remove API Key`** from the Command Palette. A modal confirmation is required.
+
+### Where the key lives
+
+- **OS keychain only** (via VS Code SecretStorage). It is **never** written to `.qmind/`, `config.json`, or any other file on disk.
+- The Python backend receives the key **per-request** in the JSON body of `POST /api/generate`. It is not stored in any server-side environment variable or file.
+- The active key is resolved from the `noctilux.llm.provider` setting (see below): `gemini` returns the Gemini key, `groq` returns the Groq key.
 
 ---
 
@@ -136,42 +181,41 @@ flowchart TD
         QE["Query Editor (CodeMirror 6 + Annotations)"]
         SE["Schema / ER Diagram Viewer"]
         QT["Query Tree DAG (ReactFlow)"]
+        AK["API Key Settings (Gemini / Groq)"]
     end
 
     subgraph EH["Extension Host (TypeScript)"]
         PM["postMessage Bridge"]
-        SS["SecretStorage (API Keys / DB Passwords)"]
+        SS["SecretStorage (OS keychain)"]
         BLM["Backend Lifecycle Manager"]
     end
 
     subgraph PY["Python Backend (FastAPI — localhost:8765)"]
-        IA["NL Intent Analyzer + Semantic Router"]
-        AD["Ambiguity Detector & Resolver"]
-        ASIM["Adaptive Schema Intelligence Module (ASIM)"]
-        LLM["Dual-Mode LLM Router + Privacy Shield"]
-        GEN["SQL / NoSQL Generator (Multi-Path + CoT)"]
+        GEN["SQL / NoSQL Generator"]
         PP["Post-Processing Pipeline (Validate / Rank / Optimize / Score)"]
         EX["Execution & Intelligence Engine"]
-        WS["Workspace & Collab Layer (.qmind/)"]
     end
 
     subgraph EXT["External"]
-        CLOUD["Cloud LLM API (Llama 3 / Mistral)"]
-        OLLAMA["Ollama Local (Mistral 7B / SQLCoder)"]
+        GEMINI["Gemini 2.5 Flash (default)"]
+        GROQ["Groq (llama-3.3-70b-versatile)"]
+        OLLAMA["Ollama Local (sqlcoder)"]
         DB["Databases (PostgreSQL / MySQL / SQLite / MongoDB)"]
     end
 
-    CP & QE & SE & QT --> PM
+    CP & QE & SE & QT & AK --> PM
     PM <--> EH
     EH --> BLM
     BLM --> PY
-    SS --> LLM
-    IA --> AD --> ASIM --> LLM
-    LLM --> CLOUD
-    LLM --> OLLAMA
-    LLM --> GEN --> PP --> EX --> WS
+    SS -->|api_key per request| PY
+    PY --> GEMINI
+    PY --> GROQ
+    PY --> OLLAMA
+    PY --> GEN --> PP --> EX
     EX --> DB
 ```
+
+**Key security property:** the API key never touches disk. It is resolved from VS Code SecretStorage on every `/api/generate` call, attached to the request body in `BackendClient.ts`, and forwarded by `routes/generate.py` directly into `llm_service.generate_sql(...)`.
 
 ---
 
@@ -182,14 +226,17 @@ flowchart TD
 - **Node.js** 20+
 - **Python** 3.11+
 - **VS Code** 1.85+
+- A free **Gemini API key** from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 - *(optional)* **Ollama** for fully-offline local LLM mode
 - *(optional)* **PostgreSQL** / **MySQL** / **MongoDB** for live query execution
 
 ### 1. Install dependencies
 
 ```bash
+git clone https://github.com/Pratham2511/Noctilux.git
+cd Noctilux
+
 # Extension host (TypeScript)
-cd querymind
 npm install
 
 # Webview (React)
@@ -219,28 +266,37 @@ npm run compile        # produces out/
 
 ### 4. Run in VS Code
 
-- Open the `querymind/` folder in VS Code.
-- Press `F5` to launch an Extension Development Host with QueryMind loaded.
-- In the new window, open a workspace folder (any folder is fine — QueryMind will create `.qmind/` inside it).
-- Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "QueryMind".
+- Open the `Noctilux/` folder in VS Code.
+- Press `F5` to launch an Extension Development Host with Noctilux loaded.
+- In the new window, open a workspace folder (any folder is fine — Noctilux will create `.qmind/` inside it).
+- On first activation you'll see the welcome prompt asking for your Gemini API key.
+- Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "Noctilux".
 
-### 5. (Optional) Configure LLM mode
+### 5. Configure LLM provider (optional)
 
-In VS Code Settings → Extensions → QueryMind:
+In VS Code Settings → Extensions → Noctilux:
 
-- `querymind.llm.mode` — `cloud`, `local`, or `auto` (default).
-- `querymind.llm.cloudEndpoint` — your Llama 3 / Mistral API endpoint.
-- `querymind.llm.cloudModel` — e.g. `llama-3-70b-instruct`.
-- `querymind.llm.localModel` — e.g. `mistral:7b`.
-- `querymind.privacy.enableShield` — toggle schema anonymization for cloud mode (default: on).
+| Setting | Values | Default |
+|---------|--------|---------|
+| `noctilux.llm.provider` | `gemini` \| `groq` \| `local` | `gemini` |
+| `noctilux.llm.geminiModel` | any Gemini model tag | `gemini-2.5-flash` (free tier) |
+| `noctilux.llm.groqModel` | any Groq model tag | `llama-3.3-70b-versatile` |
+| `noctilux.privacy.enableShield` | `true` \| `false` | `true` |
+| `noctilux.query.rowLimit` | `10`–`10000` | `500` |
+| `noctilux.execution.timeoutSeconds` | int | `60` |
+| `noctilux.execution.readOnlyByDefault` | `true` \| `false` | `true` |
+| `noctilux.backend.startPort` | int | `8765` |
+| `noctilux.backend.pythonPath` | string | `python3` |
 
 ### 6. (Optional) Set up Ollama for local mode
 
 ```bash
 # Install from https://ollama.com
-ollama pull mistral:7b
+ollama pull sqlcoder
 ollama serve
 ```
+
+Then set `noctilux.llm.provider` to `local` in VS Code settings. No API key is required in local mode.
 
 ---
 
@@ -255,14 +311,31 @@ ollama serve
 
 ---
 
+## 🧭 Commands
+
+| Command | Purpose |
+|---------|---------|
+| `Noctilux: Open Chat Panel` | Open the main NL→SQL chat webview |
+| `Noctilux: Set Gemini API Key` | Set or replace your Gemini / Groq API key |
+| `Noctilux: Remove API Key` | Remove the stored key from the OS keychain |
+| `Noctilux: Show Schema & ER Diagram` | Open the schema explorer panel |
+| `Noctilux: Open Query Tree` | Open the ReactFlow DAG of query history |
+| `Noctilux: Run Last Query` | Re-execute the most recent saved query |
+| `Noctilux: Add Database Connection` | New connection wizard |
+| `Noctilux: Run Schema Evolution Robustness Test` | EvoSchema perturbation suite |
+| `Noctilux: Restart Python Backend` | Manually restart the FastAPI subprocess |
+| `Noctilux: Open Business Glossary Editor` | Glossary CRUD UI |
+
+---
+
 ## 🔌 Backend API Reference
 
-All endpoints are bound to `http://127.0.0.1:8765` (or first free port 8765–8775). **Localhost-only** — no remote connections possible (Part 9 Security Model).
+All endpoints are bound to `http://127.0.0.1:8765` (or first free port 8765–8775). **Localhost-only** — no remote connections possible (a defense-in-depth middleware refuses non-loopback requests).
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET`    | `/api/health`         | Liveness check — returns `{status:"ok", version:"3.0.0"}` |
-| `POST`   | `/api/generate`        | NL → SQL pipeline (intent → ambiguity → RAG → LLM → post-process) |
+| `POST`   | `/api/generate`        | NL → SQL pipeline (accepts `api_key` + `provider` in body) |
 | `POST`   | `/api/execute`         | Safe query execution (validation + timeout + row limit + PII masking) |
 | `GET`    | `/api/schema`          | Schema introspection + ChromaDB indexing |
 | `POST`   | `/api/schema/impact`   | DDL pre-execution impact analysis (Novel #9) |
@@ -278,40 +351,37 @@ All endpoints are bound to `http://127.0.0.1:8765` (or first free port 8765–87
 curl http://127.0.0.1:8765/api/health
 # → {"status":"ok","version":"3.0.0"}
 
-# Generate SQL
+# Generate SQL — API key passed per request
 curl -X POST http://127.0.0.1:8765/api/generate \
   -H 'Content-Type: application/json' \
-  -d '{"nlInput":"Show me the top customers last quarter","dbConfigId":"default","sessionId":"s1"}'
-
-# Execute SQL
-curl -X POST http://127.0.0.1:8765/api/execute \
-  -H 'Content-Type: application/json' \
-  -d '{"sql":"SELECT customer_id, SUM(order_total) FROM orders GROUP BY customer_id LIMIT 10;","dbConfigId":"default"}'
-
-# Run robustness test
-curl -X POST http://127.0.0.1:8765/api/robustness \
-  -H 'Content-Type: application/json' \
-  -d '{"dbConfigId":"default","querySet":[{"id":"q1","sql":"SELECT * FROM orders","nlInput":"list orders"}]}'
+  -d '{
+    "nl_query": "Show me the top customers last quarter",
+    "schema_context": "Table orders (customer_id int, order_total numeric, order_date date)",
+    "dialect": "postgresql",
+    "query_type": "sql",
+    "provider": "gemini",
+    "api_key": "AIzaSy...your-key..."
+  }'
+# → {"query":"SELECT customer_id, SUM(order_total) ...","confidence":0.9,"alternatives":[]}
 ```
 
 ---
 
 ## 🔒 Security Model
 
-Per Part 9 of the spec:
-
 - **Credentials never on disk.** API keys and DB passwords live exclusively in VS Code SecretStorage (backed by the OS keychain). They never appear in `config.json`, `memory.json`, or any other file under `.qmind/`.
+- **API key passed per request.** The Python backend receives the API key in the JSON body of `/api/generate`, uses it for a single LLM call, and discards it. The key is **not** stored in any environment variable, config file, or in-memory cache on the backend.
 - **Localhost only.** The Python backend binds exclusively to `127.0.0.1`. A defense-in-depth middleware refuses any non-loopback request.
-- **Read-only by default.** `INSERT` / `UPDATE` / `DELETE` / `DROP` statements are rejected unless write mode is explicitly enabled.
-- **Row limit + timeout.** Default 500 rows returned (configurable up to 10,000). 60-second query timeout.
-- **Privacy Shield.** In cloud LLM mode, all schema names are tokenized (`table_A`, `col_1`) before the prompt is sent. The tokenization map is AES-256-GCM encrypted at `.qmind/priv_map.enc`. The encryption key is derived from a workspace-unique salt stored in SecretStorage.
+- **Read-only by default.** `INSERT` / `UPDATE` / `DELETE` / `DROP` statements are rejected unless `noctilux.execution.readOnlyByDefault` is set to `false`.
+- **Row limit + timeout.** Default 500 rows returned (configurable up to 10,000 via `noctilux.query.rowLimit`). 60-second query timeout.
+- **Privacy Shield.** When `noctilux.privacy.enableShield` is on, all schema names are tokenized (`table_A`, `col_1`) before the prompt is sent to the cloud LLM. The tokenization map is AES-256-GCM encrypted at `.qmind/priv_map.enc`.
 - **PII masking.** Result columns are scanned via Microsoft Presidio (when available) + custom regex. Masking rules are configurable per project in `.qmind/pii_rules.json`. Every masked column is logged to `.qmind/pii_audit.log` for GDPR / CCPA / HIPAA compliance reporting.
 
 ---
 
 ## 📁 The `.qmind/` Workspace
 
-All QueryMind state lives in a single `.qmind/` folder at the workspace root. It is designed to be committed to version control alongside the codebase — this is the project's persistent "database intelligence" state.
+All Noctilux state lives in a single `.qmind/` folder at the workspace root. It is designed to be committed to version control alongside the codebase — this is the project's persistent "database intelligence" state.
 
 ```
 .qmind/
@@ -339,8 +409,6 @@ All QueryMind state lives in a single `.qmind/` folder at the workspace root. It
 
 ## 🧪 Testing
 
-Per Part 12 of the spec:
-
 ```bash
 # TypeScript unit tests (extension + webview)
 npm test                          # vitest
@@ -359,9 +427,37 @@ Coverage targets:
 
 ---
 
-## 📊 Performance SLAs
+## 📦 Publishing to the VS Code Marketplace
 
-Per Part 11 of the spec:
+```bash
+# 1. Make sure media/icon.png exists (128×128 PNG)
+#    The .gitkeep file in media/ explains this — vsce package will fail
+#    with a "File not found" error until icon.png is added.
+
+# 2. Build everything
+cd webview && npm run build && cd ..
+npm run compile
+
+# 3. Package
+npx vsce package
+# → produces noctilux-db-assistant-1.0.0.vsix
+
+# 4. Publish (requires a VS Code Marketplace PAT)
+npx vsce publish
+```
+
+Before publishing, verify:
+- [ ] `package.json` has `publisher`, `icon`, `categories`, `keywords`, `repository`, `bugs`, `homepage`
+- [ ] `package.json` does NOT have `"private": true`
+- [ ] `CHANGELOG.md` exists in repo root
+- [ ] `.vscodeignore` excludes `webview/src/**` but NOT `webview/dist/**`, `media/**`, or `out/**`
+- [ ] `media/icon.png` (128×128 PNG) exists
+- [ ] `requirements.txt` includes `openai>=1.0.0` and other backend deps
+- [ ] `npm run compile` succeeds with zero errors
+
+---
+
+## 📊 Performance SLAs
 
 | Operation | Target |
 |-----------|--------|
@@ -387,8 +483,10 @@ Per Part 11 of the spec:
 | SQL Code Editor | CodeMirror 6 (SQL mode + gutter) | CSP-safe SQL editing |
 | Visual Query Tree | ReactFlow | Interactive DAG visualization |
 | Backend Engine | Python 3.11+ (FastAPI + Uvicorn) | All ML inference and data pipeline |
-| LLM (Cloud) | Llama 3 / Mistral via OpenAI-compatible API | High-accuracy cloud generation |
-| LLM (Local) | Ollama (Mistral 7B / SQLCoder-7B-2) | Private, fully offline generation |
+| LLM (Cloud, default) | **Google Gemini 2.5 Flash** via OpenAI-compatible SDK | Free-tier NL→SQL generation |
+| LLM (Cloud, alt) | **Groq** `llama-3.3-70b-versatile` | Fast alternative cloud provider |
+| LLM (Local) | Ollama (`sqlcoder:latest`) | Private, fully offline generation |
+| API Key Storage | VS Code SecretStorage (OS keychain) | Secure credential storage — never on disk |
 | RAG / Vector Store | ChromaDB (local, persistent) | Schema + query example retrieval |
 | SQL Parsing + AST | sqlglot | Syntax validation + AST analysis |
 | SQL Dialects | PostgreSQL, MySQL, SQLite, SQL Server | Multi-dialect aware generation |
@@ -400,11 +498,18 @@ Per Part 11 of the spec:
 | PII Detection | Microsoft Presidio + custom regex | Result-level PII classification and masking |
 | Privacy Encryption | AES-256-GCM (cryptography library) | Schema tokenization map protection |
 | Plan Similarity | Tree-edit-distance (APTED algorithm) | Plan comparison for optimizer |
-| API Key Storage | VS Code SecretStorage (OS keychain) | Secure credential storage — never on disk |
 
 ### Why CodeMirror 6 instead of Monaco?
 
 Monaco requires web workers and `eval()`, both of which are blocked by the VS Code webview Content Security Policy (CSP). CodeMirror 6 is CSP-safe, supports SQL syntax highlighting, and integrates cleanly with the annotation gutter required by Component 12 (Collaborative Annotations).
+
+### Why Gemini as the default provider?
+
+1. **Free tier is generous** — the Gemini 2.5 Flash model has a substantial free quota that covers most developer workflows.
+2. **OpenAI-compatible SDK** — Gemini's `generativelanguage.googleapis.com/v1beta/openai/` endpoint accepts the standard OpenAI Python client, so adding it required no new dependencies beyond `openai>=1.0.0`.
+3. **Fast** — Flash-tier latency is well within the < 3 s SQL-generation SLA for simple queries.
+
+If you prefer Groq or local Ollama, just flip `noctilux.llm.provider` in VS Code settings — no code changes required.
 
 ---
 
@@ -446,7 +551,7 @@ System:     [Disambiguation memory hit — resolves automatically, no questions 
 User:       Connects to HR database (employees, salaries, SSNs) — Cloud Mode active
 System:     [Privacy Shield activates]
             Real schema:  employees.salary, employees.ssn, departments.budget
-            Sent to LLM:  table_A.col_1, table_A.col_2, table_B.col_3
+            Sent to Gemini:  table_A.col_1, table_A.col_2, table_B.col_3
 
 User:       "Average salary by department for 2026"
 LLM sees:   "Average col_1 grouped by col_3 for 2026"
@@ -458,8 +563,6 @@ System:     [De-tokenizes — user sees real names:]
             [PII Masker: SSN column → XXX-XX-XXXX in all displayed rows]
             [Audit log entry: ssn masked via rule SSN_PATTERN at 2026-08-15T10:23:44Z]
 ```
-
-See the full spec (`LLM_DB_Assistant_Ultimate_Prompt_v3-1.md`) for 5 complete interaction flows.
 
 ---
 
@@ -485,20 +588,18 @@ The 18 novel contributions are documented in the project specification (`LLM_DB_
 
 ## 🤝 Contributing
 
-This project follows the 10-phase development plan (32 weeks total) defined in Part 15 of the spec. Each phase has clearly defined "started" vs "completed" contributions for tracking progress.
-
 To contribute:
 
-1. Pick a phase from Part 15.
-2. Implement the listed components.
-3. Run the benchmark tests (Part 12) to validate.
-4. Submit a PR with a clear phase reference.
+1. Fork the repo at https://github.com/Pratham2511/Noctilux
+2. Create a feature branch (`git checkout -b feat/my-feature`)
+3. Commit your changes following the existing commit-message style
+4. Open a Pull Request against `main`
+
+For major changes, please open an issue first to discuss what you'd like to change.
 
 ---
 
 ## 🔮 Future Research Directions
-
-Per Part 19 of the spec:
 
 - **Multi-language NL support** (Hindi, Arabic, French → SQL) — closing the cross-lingual NL2SQL gap (arXiv 2505.23838).
 - **RLHF Continuous Improvement** — use thumbs up/down signals and annotation flags to fine-tune the local Ollama model incrementally.
@@ -509,10 +610,14 @@ Per Part 19 of the spec:
 
 ---
 
+## 📝 Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for the full version history.
+
+---
+
 **Document Revision History:**
 
 | Version | Date | Changes |
 |---|---|---|
-| v1.0 | 2026-08-15 | Initial 8 novel contributions, core architecture |
-| v2.0 | 2026-08-15 | Added 10 novel contributions (#9–#18), updated architecture |
-| v3.0 | 2026-08-15 | Added: project file structure, TypeScript interfaces, IPC spec, connection pooling, lifecycle management, security model, error handling, SLAs, testing strategy, CodeMirror 6 clarification, phase splits, component-contribution mapping, Mermaid architecture diagram, state flow diagram. |
+| v1.0.0 | 2026-08-16 | Initial public release. Renamed from QueryMind / Lumina → Noctilux. Switched default LLM to Google Gemini 2.5 Flash (free tier). Added first-run API key prompt + `noctilux.setApiKey` / `noctilux.clearApiKey` commands + ApiKeySettings.tsx webview component. Marketplace-ready package.json (publisher `pratham2511`, galleryBanner, AI categories). All credentials stored in VS Code SecretStorage — never on disk. |

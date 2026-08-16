@@ -27,7 +27,7 @@ export default function ChatPanel({ messages, onSend }: Props) {
       <div className="flex-1 overflow-auto p-3 space-y-3">
         {messages.length === 0 && (
           <div className="text-qm-fg opacity-60 text-xs p-4 text-center">
-            <p className="mb-2">Ask QueryMind anything about your database.</p>
+            <p className="mb-2">Ask Noctilux anything about your database.</p>
             <p className="italic">Try: "Show me the top customers last quarter"</p>
           </div>
         )}

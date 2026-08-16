@@ -1,0 +1,10 @@
+# This folder holds the extension's marketplace icon.
+#
+# Required file:  media/icon.png   (128x128 px PNG, used by package.json "icon" field)
+#
+# The actual icon.png must be added manually by the developer before publishing
+# to the VS Code Marketplace. `vsce package` will fail with a "File not found"
+# error until icon.png exists — that is expected.
+#
+# The sidebar activity-bar icon (media/sidebar.svg) is committed alongside
+# this placeholder.

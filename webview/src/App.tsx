@@ -9,6 +9,7 @@ import NarrativeCard from './components/NarrativeCard';
 import QueryTreeView from './components/QueryTreeView';
 import GlossaryEditor from './components/GlossaryEditor';
 import ConnectionForm from './components/ConnectionForm';
+import { ApiKeySettings } from './components/ApiKeySettings';
 import RobustnessReport from './components/RobustnessReport';
 import MessageBubble from './components/MessageBubble';
 import SQLCodeBlock from './components/SQLCodeBlock';
@@ -128,7 +129,12 @@ export default function App() {
         {activeTab === 'tree' && <QueryTreeView />}
         {activeTab === 'glossary' && <GlossaryEditor />}
         {activeTab === 'robustness' && <RobustnessReport />}
-        {activeTab === 'connections' && <ConnectionForm />}
+        {activeTab === 'connections' && (
+          <>
+            <ApiKeySettings />
+            <ConnectionForm />
+          </>
+        )}
       </div>
     </div>
   );
@@ -140,7 +146,7 @@ function SchemaPlaceholderView() {
       <h2 className="text-base font-semibold mb-2">Schema &amp; ER Diagram</h2>
       <p className="text-qm-fg text-xs">
         Schema introspection is shown in the dedicated Schema Panel (use the
-        Command Palette &gt; "QueryMind: Show Schema / ER Diagram"). The ER
+        Command Palette &gt; "Noctilux: Show Schema / ER Diagram"). The ER
         diagram is auto-generated via Mermaid.js from the introspected
         SQLAlchemy reflection and saved to <code>.qmind/er_diagram.svg</code>.
       </p>

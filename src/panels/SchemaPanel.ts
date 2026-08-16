@@ -10,7 +10,7 @@ import { SchemaInfo } from '../types';
 
 export class SchemaPanel {
   public static currentPanel: SchemaPanel | undefined;
-  private static readonly viewType = 'querymind.schema';
+  private static readonly viewType = 'noctilux.schema';
   private disposables: vscode.Disposable[] = [];
 
   public static createOrShow(context: vscode.ExtensionContext, client: BackendClient | null): SchemaPanel {
@@ -20,7 +20,7 @@ export class SchemaPanel {
     }
     const panel = vscode.window.createWebviewPanel(
       SchemaPanel.viewType,
-      'QueryMind — Schema & ER Diagram',
+      'Noctilux — Schema & ER Diagram',
       vscode.ViewColumn.Two,
       { enableScripts: true, retainContextWhenHidden: true }
     );

@@ -12,7 +12,7 @@ import { WorkspaceService } from '../services/WorkspaceService';
 
 export class QueryTreePanel {
   public static currentPanel: QueryTreePanel | undefined;
-  private static readonly viewType = 'querymind.tree';
+  private static readonly viewType = 'noctilux.tree';
   private disposables: vscode.Disposable[] = [];
 
   public static createOrShow(
@@ -25,7 +25,7 @@ export class QueryTreePanel {
     }
     const panel = vscode.window.createWebviewPanel(
       QueryTreePanel.viewType,
-      'QueryMind — Query Tree (DAG)',
+      'Noctilux — Query Tree (DAG)',
       vscode.ViewColumn.Two,
       { enableScripts: true, retainContextWhenHidden: true }
     );

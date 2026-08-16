@@ -1,5 +1,5 @@
 // ============================================================================
-// QueryMind — Shared TypeScript Interfaces
+// Noctilux — Shared TypeScript Interfaces
 // src/types/index.ts
 //
 // All types shared between the VS Code extension host and the React webview.
@@ -226,7 +226,9 @@ export type WebviewMessageType =
   | 'ROBUSTNESS_REQUESTED'
   | 'BACKEND_STATUS'
   | 'ERROR'
-  | 'SETTINGS_UPDATED';
+  | 'SETTINGS_UPDATED'
+  | 'STORE_API_KEY'
+  | 'OPEN_EXTERNAL';
 
 // ─── Backend Lifecycle ────────────────────────────────────────────────────
 export interface BackendStatus {

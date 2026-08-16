@@ -18,7 +18,7 @@ interface VsCodeApi {
 const vscode = window.acquireVsCodeApi ? window.acquireVsCodeApi() : null;
 
 if (!vscode) {
-  console.warn('[QueryMind] Not running inside VS Code webview — using mock.');
+  console.warn('[Noctilux] Not running inside VS Code webview — using mock.');
 }
 
 export function postMessage(
@@ -46,3 +46,22 @@ export function genRequestId(): string {
 }
 
 export { vscode };
+
+// React hook for components that need direct access to the VS Code API.
+// Usage:
+//   const vscode = useVsCode();
+//   vscode.postMessage({ type: 'STORE_API_KEY', payload: {...} });
+//
+// Falls back to a no-op mock when running outside a webview (e.g. browser dev).
+export function useVsCode(): VsCodeApi {
+  if (vscode) {
+    return vscode;
+  }
+  // Mock for browser dev — mirrors the real shape so components compile.
+  const mock: VsCodeApi = {
+    getState: () => ({}),
+    setState: () => {},
+    postMessage: (msg) => console.log('[mock postMessage]', msg),
+  };
+  return mock;
+}
