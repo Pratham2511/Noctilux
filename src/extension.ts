@@ -271,6 +271,11 @@ export async function deactivate(): Promise<void> {
   await backendManager?.stop();
 }
 
+// Generic sanity check only — no provider-specific prefix validation.
+// Keys from any provider (Gemini, Claude, Kimi, OpenAI, …) are accepted.
+const looksLikeApiKey = (v: string): string | null =>
+    v.trim().length < 10 ? 'Key looks too short — paste the full API key' : null;
+
 // ── Helper — reusable key prompt ─────────────────────────────────────
 async function promptForKey(
     secrets: SecretsService,
@@ -280,14 +285,14 @@ async function promptForKey(
         gemini: {
             title: 'Verbis — Gemini API Key',
             prompt: 'Free key from aistudio.google.com → Create API Key',
-            placeholder: 'AIzaSy...',
-            validate: (v: string) => v.startsWith('AIza') ? null : 'Gemini keys start with AIza'
+            placeholder: 'Paste your API key',
+            validate: looksLikeApiKey
         },
         groq: {
             title: 'Verbis — Groq API Key',
             prompt: 'Free key from console.groq.com → API Keys',
-            placeholder: 'gsk_...',
-            validate: (v: string) => v.startsWith('gsk_') ? null : 'Groq keys start with gsk_'
+            placeholder: 'Paste your API key',
+            validate: looksLikeApiKey
         }
     }[provider];
 

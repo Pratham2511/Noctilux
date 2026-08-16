@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.2] — 2026-08-16
+
+### Changed
+- Removed provider-specific API key prefix validation (`AIza…`, `gsk_…`) — keys from any provider (Gemini, Claude, Kimi, OpenAI, …) are now accepted. Only a basic non-empty/length sanity check remains.
+- README updated to document multi-provider API key support.
+
+## [1.0.1] — 2026-08-16
+
+### Fixed
+- Extension crashed on activation (`Cannot find module 'node-fetch'`) — replaced with Node's built-in global `fetch`. The extension now has zero runtime dependencies.
+
 ## [1.0.0] — 2026-08-16
 
 ### Added

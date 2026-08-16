@@ -7,7 +7,7 @@
 
 Verbis is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
-The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
+The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported, and API keys from **any provider — Gemini, Claude, Kimi, OpenAI, and others — are accepted** without format restrictions. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
 
 ---
 
@@ -111,9 +111,9 @@ verbis/
 
 ---
 
-## 🔑 Setting Your Gemini API Key
+## 🔑 Setting Your API Key
 
-Verbis needs a free Gemini API key to generate SQL queries. There are three ways to enter it:
+Verbis needs an LLM provider API key to generate SQL queries. The default provider is **Google Gemini** (free tier), and keys from **any provider — Gemini, Claude, Kimi, OpenAI, Groq, and others — are accepted**; no provider-specific key format is enforced. There are three ways to enter your key:
 
 ### Option A — First-run welcome prompt
 
@@ -127,13 +127,11 @@ Click **Set API Key** to paste your key directly, or **Get Free Key** to open [a
 
 Run **`Verbis: Set Gemini API Key`** from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`). You'll be asked which provider (`gemini` or `groq`) you're setting a key for, then prompted to paste it.
 
-Validators enforce the standard key prefixes:
-- **Gemini** keys must start with `AIza`
-- **Groq** keys must start with `gsk_`
+Any key format is accepted — paste the full key exactly as your provider shows it. The only check is a basic sanity check (non-empty, reasonable length); there is no prefix validation.
 
 ### Option C — From the Webview Settings Panel
 
-Open the **Connections** tab in the Verbis webview. The **API Keys** card at the top lets you paste your Gemini or Groq key into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
+Open the **Connections** tab in the Verbis webview. The **API Keys** card at the top lets you paste any provider's key (Gemini, Claude, Kimi, OpenAI, Groq, …) into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
 
 ### Removing the key
 
@@ -226,7 +224,7 @@ flowchart TD
 - **Node.js** 20+
 - **Python** 3.11+
 - **VS Code** 1.85+
-- A free **Gemini API key** from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+- A free **Gemini API key** from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) (or an API key from any other supported provider)
 - *(optional)* **Ollama** for fully-offline local LLM mode
 - *(optional)* **PostgreSQL** / **MySQL** / **MongoDB** for live query execution
 
@@ -269,7 +267,7 @@ npm run compile        # produces out/
 - Open the `Verbis/` folder in VS Code.
 - Press `F5` to launch an Extension Development Host with Verbis loaded.
 - In the new window, open a workspace folder (any folder is fine — Verbis will create `.qmind/` inside it).
-- On first activation you'll see the welcome prompt asking for your Gemini API key.
+- On first activation you'll see the welcome prompt asking for your API key (any provider's key format is accepted).
 - Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "Verbis".
 
 ### 5. Configure LLM provider (optional)

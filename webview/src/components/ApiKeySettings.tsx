@@ -47,7 +47,7 @@ export function ApiKeySettings() {
                 <div className="flex gap-2">
                     <input type="password" value={geminiKey}
                         onChange={e => setGeminiKey(e.target.value)}
-                        placeholder="AIzaSy..."
+                        placeholder="Paste your API key — any provider"
                         className="flex-1 bg-gray-900 border border-gray-600 rounded
                                    px-3 py-1.5 text-sm font-mono text-gray-200
                                    focus:border-blue-500 focus:outline-none" />
@@ -75,7 +75,7 @@ export function ApiKeySettings() {
                 <div className="flex gap-2">
                     <input type="password" value={groqKey}
                         onChange={e => setGroqKey(e.target.value)}
-                        placeholder="gsk_..."
+                        placeholder="Paste your API key — any provider"
                         className="flex-1 bg-gray-900 border border-gray-600 rounded
                                    px-3 py-1.5 text-sm font-mono text-gray-200
                                    focus:border-blue-500 focus:outline-none" />
