@@ -225,6 +225,11 @@ export class VerbisPanel {
     }
   }
 
+  // Public so extension.ts can broadcast to the webview
+  public postMessage(message: unknown): void {
+    this.panel.webview.postMessage(message);
+  }
+
   private sendError(message: string): void {
     this.panel.webview.postMessage({
       type: 'ERROR',

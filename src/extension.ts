@@ -81,7 +81,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   backendManager.on('status', (status) => {
-    VerbisPanel.currentPanel?.panel.webview.postMessage({
+    VerbisPanel.currentPanel?.postMessage({
       type: 'BACKEND_STATUS',
       payload: status,
     });
@@ -98,7 +98,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         ],
         { title: 'Verbis: Which provider?' }
       );
-      if (provider) { await promptForKey(secretsService, provider.value as 'gemini' | 'groq'); }
+      if (provider && secretsService) {
+        await promptForKey(secretsService, provider.value as 'gemini' | 'groq');
+      }
     }),
 
     vscode.commands.registerCommand('verbis.clearApiKey', async () => {
@@ -107,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         { modal: true },
         'Remove'
       );
-      if (confirmed === 'Remove') {
+      if (confirmed === 'Remove' && secretsService) {
         await secretsService.deleteGeminiKey();
         vscode.window.showInformationMessage('Verbis: API key removed.');
       }
@@ -222,7 +224,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         secretsService!
       );
       // Switch webview to glossary tab via postMessage
-      VerbisPanel.currentPanel?.panel.webview.postMessage({
+      VerbisPanel.currentPanel?.postMessage({
         type: 'GLOSSARY_SAVED',
         payload: { openEditor: true },
       });
