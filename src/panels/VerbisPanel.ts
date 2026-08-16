@@ -1,6 +1,6 @@
 // ============================================================================
-// NoctiluxPanel — Main webview panel (chat + SQL + results)
-// src/panels/NoctiluxPanel.ts
+// VerbisPanel — Main webview panel (chat + SQL + results)
+// src/panels/VerbisPanel.ts
 //
 // Hosts the React webview that contains ChatPanel, SQLCodeBlock,
 // ResultTable, NarrativeCard, ConfidenceBar. All postMessage traffic
@@ -14,9 +14,9 @@ import { BackendClient } from '../services/BackendClient';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { SecretsService } from '../services/SecretsService';
 
-export class NoctiluxPanel {
-  public static currentPanel: NoctiluxPanel | undefined;
-  private static readonly viewType = 'noctilux.panel';
+export class VerbisPanel {
+  public static currentPanel: VerbisPanel | undefined;
+  private static readonly viewType = 'verbis.panel';
 
   private panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
@@ -26,14 +26,14 @@ export class NoctiluxPanel {
     client: BackendClient | null,
     workspace: WorkspaceService,
     secrets: SecretsService
-  ): NoctiluxPanel {
-    if (NoctiluxPanel.currentPanel) {
-      NoctiluxPanel.currentPanel.panel.reveal(vscode.ViewColumn.Two);
-      return NoctiluxPanel.currentPanel;
+  ): VerbisPanel {
+    if (VerbisPanel.currentPanel) {
+      VerbisPanel.currentPanel.panel.reveal(vscode.ViewColumn.Two);
+      return VerbisPanel.currentPanel;
     }
     const panel = vscode.window.createWebviewPanel(
-      NoctiluxPanel.viewType,
-      'Noctilux — Chat',
+      VerbisPanel.viewType,
+      'Verbis — Chat',
       vscode.ViewColumn.Two,
       {
         enableScripts: true,
@@ -43,8 +43,8 @@ export class NoctiluxPanel {
         ],
       }
     );
-    NoctiluxPanel.currentPanel = new NoctiluxPanel(panel, context, client, workspace, secrets);
-    return NoctiluxPanel.currentPanel;
+    VerbisPanel.currentPanel = new VerbisPanel(panel, context, client, workspace, secrets);
+    return VerbisPanel.currentPanel;
   }
 
   private constructor(
@@ -112,12 +112,12 @@ export class NoctiluxPanel {
 
           // ── Resolve provider + API key from VS Code config + SecretStorage ──
           const provider = vscode.workspace
-            .getConfiguration('noctilux')
+            .getConfiguration('verbis')
             .get<string>('llm.provider', 'gemini');
           const apiKey = (await this.secrets.getActiveApiKey()) ?? '';
           if (!apiKey && provider !== 'local') {
             this.sendError(
-              `No ${provider} API key set. Run "Noctilux: Set Gemini API Key" first.`
+              `No ${provider} API key set. Run "Verbis: Set Gemini API Key" first.`
             );
             return;
           }
@@ -218,7 +218,7 @@ export class NoctiluxPanel {
         }
 
         default:
-          console.warn(`[Noctilux] Unhandled message type: ${msg.type}`);
+          console.warn(`[Verbis] Unhandled message type: ${msg.type}`);
       }
     } catch (err) {
       this.sendError((err as Error).message);
@@ -252,7 +252,7 @@ export class NoctiluxPanel {
                  img-src ${this.panel.webview.cspSource} https:;
                  script-src 'nonce-${nonce}';
                  style-src ${this.panel.webview.cspSource} 'unsafe-inline';" />
-  <title>Noctilux</title>
+  <title>Verbis</title>
   <link rel="stylesheet" href="${styleUri}" />
 </head>
 <body>
@@ -264,7 +264,7 @@ export class NoctiluxPanel {
 
   // ─── Dispose ───────────────────────────────────────────────────────
   public dispose(): void {
-    NoctiluxPanel.currentPanel = undefined;
+    VerbisPanel.currentPanel = undefined;
     this.panel.dispose();
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];

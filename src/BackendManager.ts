@@ -4,7 +4,8 @@
 //
 // Implements the lifecycle described in Part 8 of the spec:
 //   1. Find a free port (scan 8765..8775)
-//   2. Spawn `python main.py --port <p> --workspace <path>`
+//   2. Spawn `python main.py --port <p> --workspace <path>` using cross-platform
+//      venv Python path resolver (falls back to system Python if no venv)
 //   3. Poll GET /api/health every 500ms (timeout 10s)
 //   4. On success: emit 'ready'
 //   5. On crash: auto-restart once; if second crash within 30s, stop
@@ -13,6 +14,7 @@
 
 import { ChildProcess, spawn } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as net from 'net';
 import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
@@ -24,6 +26,29 @@ const HEALTH_CHECK_INTERVAL_MS = 500;
 const HEALTH_CHECK_TIMEOUT_MS = 10_000;
 const CRASH_RESTART_WINDOW_MS = 30_000;
 
+/**
+ * Cross-platform Python venv path resolver.
+ *
+ * Looks for `python_backend/venv/` created by the user (or by the publish
+ * workflow). Falls back to system `python3` (or `python` on Windows) if the
+ * venv doesn't exist — this keeps the extension usable during development
+ * without requiring a venv setup step.
+ */
+function getPythonPath(backendDir: string): string {
+    if (process.platform === 'win32') {
+        const venvPython = path.join(backendDir, 'venv', 'Scripts', 'python.exe');
+        if (fs.existsSync(venvPython)) {
+            return venvPython;
+        }
+        return 'python';  // fallback: system Python on PATH
+    }
+    const venvPython = path.join(backendDir, 'venv', 'bin', 'python');
+    if (fs.existsSync(venvPython)) {
+        return venvPython;
+    }
+    return 'python3';  // fallback: system Python on PATH
+}
+
 export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
   private port: number | null = null;
@@ -32,8 +57,8 @@ export class BackendManager extends EventEmitter {
   private status: BackendStatus = { state: 'stopped' };
 
   constructor(
-    private readonly pythonPath: string,
     private readonly backendScriptPath: string,
+    private readonly backendDir: string,
     private readonly workspacePath: string,
     private readonly startPort: number = 8765
   ) {
@@ -57,23 +82,26 @@ export class BackendManager extends EventEmitter {
 
     this.client = new BackendClient(`http://127.0.0.1:${this.port}`);
 
+    // Resolve Python executable (venv-aware, cross-platform)
+    const pythonPath = getPythonPath(this.backendDir);
+
     // Spawn Python process
     this.process = spawn(
-      this.pythonPath,
+      pythonPath,
       [this.backendScriptPath, '--port', String(this.port), '--workspace', this.workspacePath],
-      { env: { ...process.env }, detached: false }
+      { cwd: this.backendDir, env: { ...process.env }, detached: false }
     );
 
     this.process.on('exit', (code, signal) => {
       const wasReady = this.status.state === 'ready';
-      console.warn(`[Noctilux] Python backend exited: code=${code} signal=${signal}`);
+      console.warn(`[Verbis] Python backend exited: code=${code} signal=${signal}`);
       if (wasReady) {
         this.handleCrash();
       }
     });
 
     this.process.stderr?.on('data', (chunk: Buffer) => {
-      console.error(`[Noctilux backend stderr] ${chunk.toString()}`);
+      console.error(`[Verbis backend stderr] ${chunk.toString()}`);
     });
 
     // Health check polling
@@ -86,7 +114,7 @@ export class BackendManager extends EventEmitter {
         lastError: 'Health check timeout — backend failed to start within 10s.',
       });
       vscode.window.showErrorMessage(
-        'Noctilux backend failed to start. Click "Restart Backend" to retry.',
+        'Verbis backend failed to start. Click "Restart Backend" to retry.',
         'Restart Backend'
       ).then(action => {
         if (action === 'Restart Backend') this.restart();
@@ -119,13 +147,13 @@ export class BackendManager extends EventEmitter {
     this.crashTimestamps.push(now);
 
     if (this.crashTimestamps.length === 1) {
-      console.warn('[Noctilux] Auto-restarting backend (first crash)...');
+      console.warn('[Verbis] Auto-restarting backend (first crash)...');
       await new Promise(r => setTimeout(r, 1000));
       await this.start();
     } else {
       this.setStatus({ state: 'crashed', lastError: 'Backend crashed twice within 30s. Manual restart required.' });
       vscode.window.showErrorMessage(
-        'Noctilux backend crashed twice within 30s. Click "Restart Backend" to retry manually.',
+        'Verbis backend crashed twice within 30s. Click "Restart Backend" to retry manually.',
         'Restart Backend'
       ).then(action => {
         if (action === 'Restart Backend') this.restart();

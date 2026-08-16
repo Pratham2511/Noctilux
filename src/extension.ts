@@ -5,15 +5,15 @@
 // Activation sequence:
 //   0. Initialize SecretsService + first-run Gemini API key prompt
 //   1. Initialize WorkspaceService (.qmind/ folder)
-//   2. Start BackendManager (Python subprocess on localhost)
-//   3. Register all commands (noctilux.*) and keybindings
+//   2. Start BackendManager (Python subprocess on localhost, cross-platform venv)
+//   3. Register all commands (verbis.*) and keybindings
 //   4. On deactivate: graceful backend shutdown
 // ============================================================================
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BackendManager } from './BackendManager';
-import { NoctiluxPanel } from './panels/NoctiluxPanel';
+import { VerbisPanel } from './panels/VerbisPanel';
 import { SchemaPanel } from './panels/SchemaPanel';
 import { QueryTreePanel } from './panels/QueryTreePanel';
 import { WorkspaceService } from './services/WorkspaceService';
@@ -24,22 +24,22 @@ let workspaceService: WorkspaceService | undefined;
 let secretsService: SecretsService | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.info('[Noctilux] Activating extension v1.0.0…');
+  console.info('[Verbis] Activating extension v1.0.0…');
 
   // ─── 0. Initialize SecretsService (VS Code SecretStorage) ─────────────
   secretsService = new SecretsService(context);
 
-  // ── First-run API key prompt ──────────────────────────────────────
+  // ── First-run prompt ──────────────────────────────────────────────────
   const existingKey = await secretsService.getGeminiKey();
   if (!existingKey) {
     const action = await vscode.window.showInformationMessage(
-      'Welcome to Noctilux! A free Gemini API key is needed to generate queries.',
+      'Welcome to Verbis! A free Gemini API key is required to generate queries.',
       'Set API Key',
       'Get Free Key',
       'Later'
     );
     if (action === 'Set API Key') {
-      await promptForApiKey(secretsService, 'gemini');
+      await promptForKey(secretsService, 'gemini');
     } else if (action === 'Get Free Key') {
       vscode.env.openExternal(
         vscode.Uri.parse('https://aistudio.google.com/app/apikey')
@@ -51,24 +51,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders || workspaceFolders.length === 0) {
     vscode.window.showWarningMessage(
-      'Noctilux requires an open workspace folder. Open a folder and try again.'
+      'Verbis requires an open workspace folder. Open a folder and try again.'
     );
     return;
   }
   const workspaceRoot = workspaceFolders[0].uri.fsPath;
 
-  // ─── 2. Initialize workspace service ──────────────────────────────────
+  // ─── 2. Initialize workspace service + backend manager ────────────────
   workspaceService = new WorkspaceService(workspaceRoot);
 
-  // ─── 3. Read config & start backend ──────────────────────────────────
-  const config = vscode.workspace.getConfiguration('noctilux');
-  const pythonPath = config.get<string>('backend.pythonPath', 'python3');
+  const config = vscode.workspace.getConfiguration('verbis');
   const startPort = config.get<number>('backend.startPort', 8765);
-  const backendScriptPath = path.join(context.extensionPath, 'python_backend', 'main.py');
+  const backendDir = path.join(context.extensionPath, 'python_backend');
+  const backendScriptPath = path.join(backendDir, 'main.py');
 
   backendManager = new BackendManager(
-    pythonPath,
     backendScriptPath,
+    backendDir,
     workspaceRoot,
     startPort
   );
@@ -76,46 +75,47 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Fire-and-forget — don't block activation on backend ready
   backendManager.start().then(status => {
     vscode.window.setStatusBarMessage(
-      `Noctilux backend: ${status.state}${status.port ? ` (port ${status.port})` : ''}`,
+      `Verbis backend: ${status.state}${status.port ? ` (port ${status.port})` : ''}`,
       3000
     );
   });
 
   backendManager.on('status', (status) => {
-    NoctiluxPanel.currentPanel?.panel.webview.postMessage({
+    VerbisPanel.currentPanel?.panel.webview.postMessage({
       type: 'BACKEND_STATUS',
       payload: status,
     });
   });
 
-  // ─── 4. Register commands ───────────────────────────────────────────
+  // ─── 3. Register commands ───────────────────────────────────────────
   context.subscriptions.push(
 
-    vscode.commands.registerCommand('noctilux.setApiKey', async () => {
+    vscode.commands.registerCommand('verbis.setApiKey', async () => {
       const provider = await vscode.window.showQuickPick(
-        ['gemini', 'groq'],
-        { title: 'Which provider are you setting a key for?' }
+        [
+          { label: 'Google Gemini', description: 'Recommended — free tier', value: 'gemini' },
+          { label: 'Groq',          description: 'Alternative — free tier', value: 'groq'   }
+        ],
+        { title: 'Verbis: Which provider?' }
       );
-      if (provider) {
-        await promptForApiKey(secretsService, provider as 'gemini' | 'groq');
-      }
+      if (provider) { await promptForKey(secretsService, provider.value as 'gemini' | 'groq'); }
     }),
 
-    vscode.commands.registerCommand('noctilux.clearApiKey', async () => {
-      const confirm = await vscode.window.showWarningMessage(
-        'Remove stored Noctilux API key?',
+    vscode.commands.registerCommand('verbis.clearApiKey', async () => {
+      const confirmed = await vscode.window.showWarningMessage(
+        'Remove your stored Verbis API key?',
         { modal: true },
         'Remove'
       );
-      if (confirm === 'Remove') {
+      if (confirmed === 'Remove') {
         await secretsService.deleteGeminiKey();
-        vscode.window.showInformationMessage('API key removed.');
+        vscode.window.showInformationMessage('Verbis: API key removed.');
       }
     }),
 
-    vscode.commands.registerCommand('noctilux.openChat', () => {
+    vscode.commands.registerCommand('verbis.openChat', () => {
       if (!workspaceService || !secretsService || !backendManager) return;
-      NoctiluxPanel.createOrShow(
+      VerbisPanel.createOrShow(
         context,
         backendManager.getClient(),
         workspaceService,
@@ -123,7 +123,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
     }),
 
-    vscode.commands.registerCommand('noctilux.runLastQuery', async () => {
+    vscode.commands.registerCommand('verbis.runLastQuery', async () => {
       if (!workspaceService || !backendManager?.getClient()) return;
       const history = await workspaceService.readHistory();
       if (history.length === 0) {
@@ -142,17 +142,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
 
-    vscode.commands.registerCommand('noctilux.showSchema', () => {
+    vscode.commands.registerCommand('verbis.showSchema', () => {
       if (!backendManager) return;
       SchemaPanel.createOrShow(context, backendManager.getClient());
     }),
 
-    vscode.commands.registerCommand('noctilux.openQueryTree', () => {
+    vscode.commands.registerCommand('verbis.openTree', () => {
       if (!workspaceService) return;
       QueryTreePanel.createOrShow(context, workspaceService);
     }),
 
-    vscode.commands.registerCommand('noctilux.addConnection', async () => {
+    vscode.commands.registerCommand('verbis.addConnection', async () => {
       if (!workspaceService || !secretsService) return;
       const name = await vscode.window.showInputBox({ prompt: 'Connection name', placeHolder: 'Production Postgres' });
       if (!name) return;
@@ -186,7 +186,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);
     }),
 
-    vscode.commands.registerCommand('noctilux.runRobustnessTest', async () => {
+    vscode.commands.registerCommand('verbis.runRobustnessTest', async () => {
       if (!backendManager?.getClient() || !workspaceService) return;
       const history = await workspaceService.readHistory();
       if (history.length === 0) {
@@ -202,36 +202,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       vscode.window.showTextDocument(
         vscode.Uri.parse(
-          `noctilux://robustness/${encodeURIComponent(JSON.stringify(report))}`
+          `verbis://robustness/${encodeURIComponent(JSON.stringify(report))}`
         )
       );
     }),
 
-    vscode.commands.registerCommand('noctilux.restartBackend', async () => {
+    vscode.commands.registerCommand('verbis.restartBackend', async () => {
       if (!backendManager) return;
-      vscode.window.showInformationMessage('Restarting Noctilux backend…');
+      vscode.window.showInformationMessage('Restarting Verbis backend…');
       await backendManager.restart();
     }),
 
-    vscode.commands.registerCommand('noctilux.openGlossaryEditor', () => {
+    vscode.commands.registerCommand('verbis.openGlossaryEditor', () => {
       if (!workspaceService || !backendManager) return;
-      NoctiluxPanel.createOrShow(
+      VerbisPanel.createOrShow(
         context,
         backendManager.getClient(),
         workspaceService,
         secretsService!
       );
       // Switch webview to glossary tab via postMessage
-      NoctiluxPanel.currentPanel?.panel.webview.postMessage({
+      VerbisPanel.currentPanel?.panel.webview.postMessage({
         type: 'GLOSSARY_SAVED',
         payload: { openEditor: true },
       });
     })
   );
 
-  // ─── 5. Register URI handler for robustness report ─────────────────
+  // ─── 4. Register URI handler for robustness report ─────────────────
   context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider('noctilux', {
+    vscode.workspace.registerTextDocumentContentProvider('verbis', {
       provideTextDocumentContent(uri: vscode.Uri): string {
         const json = decodeURIComponent(uri.path.slice(1));
         try {
@@ -261,51 +261,45 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })
   );
 
-  console.info('[Noctilux] Extension activated successfully.');
+  console.info('[Verbis] Extension activated successfully.');
 }
 
 export async function deactivate(): Promise<void> {
-  console.info('[Noctilux] Deactivating extension…');
+  console.info('[Verbis] Deactivating extension…');
   await backendManager?.stop();
 }
 
 // ── Helper — reusable key prompt ─────────────────────────────────────
-async function promptForApiKey(
-  secrets: SecretsService,
-  provider: 'gemini' | 'groq'
+async function promptForKey(
+    secrets: SecretsService,
+    provider: 'gemini' | 'groq'
 ): Promise<void> {
-  const labels = {
-    gemini: {
-      title: 'Noctilux — Gemini API Key',
-      prompt: 'Free key at aistudio.google.com → Create API Key',
-      placeholder: 'AIzaSy...',
-      validator: (v: string) =>
-        v.startsWith('AIza') ? null : 'Gemini keys start with AIza'
-    },
-    groq: {
-      title: 'Noctilux — Groq API Key',
-      prompt: 'Free key at console.groq.com → API Keys',
-      placeholder: 'gsk_...',
-      validator: (v: string) =>
-        v.startsWith('gsk_') ? null : 'Groq keys start with gsk_'
-    }
-  };
+    const config = {
+        gemini: {
+            title: 'Verbis — Gemini API Key',
+            prompt: 'Free key from aistudio.google.com → Create API Key',
+            placeholder: 'AIzaSy...',
+            validate: (v: string) => v.startsWith('AIza') ? null : 'Gemini keys start with AIza'
+        },
+        groq: {
+            title: 'Verbis — Groq API Key',
+            prompt: 'Free key from console.groq.com → API Keys',
+            placeholder: 'gsk_...',
+            validate: (v: string) => v.startsWith('gsk_') ? null : 'Groq keys start with gsk_'
+        }
+    }[provider];
 
-  const cfg = labels[provider];
-  const key = await vscode.window.showInputBox({
-    title: cfg.title,
-    prompt: cfg.prompt,
-    password: true,
-    ignoreFocusOut: true,
-    placeHolder: cfg.placeholder,
-    validateInput: cfg.validator
-  });
+    const key = await vscode.window.showInputBox({
+        title:         config.title,
+        prompt:        config.prompt,
+        password:      true,
+        ignoreFocusOut: true,
+        placeHolder:   config.placeholder,
+        validateInput: config.validate
+    });
 
-  if (key) {
+    if (!key) { return; }
     if (provider === 'gemini') { await secrets.storeGeminiKey(key); }
-    else { await secrets.storeGroqKey(key); }
-    vscode.window.showInformationMessage(
-      `✅ ${provider === 'gemini' ? 'Gemini' : 'Groq'} key saved securely.`
-    );
-  }
+    else                       { await secrets.storeGroqKey(key); }
+    vscode.window.showInformationMessage(`Verbis: ${provider} key saved securely ✓`);
 }

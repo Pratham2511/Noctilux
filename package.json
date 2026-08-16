@@ -1,19 +1,20 @@
 {
-  "name": "noctilux-db-assistant",
-  "displayName": "Noctilux — Intelligent Database Assistant",
-  "description": "Natural language to SQL/NoSQL queries with AI. Connect any database, generate optimized queries, explain results, and track query history — all inside VS Code.",
+  "name": "verbis-db-assistant",
+  "displayName": "Verbis — Intelligent Database Assistant",
+  "description": "Talk to any database in plain English. Verbis converts natural language into optimized SQL and NoSQL queries, explains results, tracks query history, and protects your data — all inside VS Code.",
   "version": "1.0.0",
   "publisher": "pratham2511",
-  "license": "MIT",
   "icon": "media/icon.png",
+  "license": "MIT",
+  "private": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Pratham2511/Noctilux"
+    "url": "https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant"
   },
   "bugs": {
-    "url": "https://github.com/Pratham2511/Noctilux/issues"
+    "url": "https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant/issues"
   },
-  "homepage": "https://github.com/Pratham2511/Noctilux#readme",
+  "homepage": "https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant#readme",
   "categories": [
     "AI",
     "Data Science",
@@ -29,7 +30,10 @@
     "mysql",
     "mongodb",
     "query",
-    "nlp"
+    "nlp",
+    "text-to-sql",
+    "nl2sql",
+    "database assistant"
   ],
   "engines": {
     "vscode": "^1.85.0"
@@ -46,142 +50,141 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "noctilux-explorer",
-          "title": "Noctilux",
+          "id": "verbis-explorer",
+          "title": "Verbis",
           "icon": "media/sidebar.svg"
         }
       ]
     },
     "views": {
-      "noctilux-explorer": [
+      "verbis-explorer": [
         {
-          "id": "noctilux.connections",
+          "id": "verbis.connections",
           "name": "Connections"
         },
         {
-          "id": "noctilux.schema",
+          "id": "verbis.schema",
           "name": "Schema"
         },
         {
-          "id": "noctilux.history",
+          "id": "verbis.history",
           "name": "Recent Queries"
         }
       ]
     },
     "commands": [
       {
-        "command": "noctilux.openChat",
-        "title": "Noctilux: Open Chat Panel"
+        "command": "verbis.openChat",
+        "title": "Verbis: Open Chat Panel"
       },
       {
-        "command": "noctilux.setApiKey",
-        "title": "Noctilux: Set Gemini API Key"
+        "command": "verbis.setApiKey",
+        "title": "Verbis: Set API Key"
       },
       {
-        "command": "noctilux.clearApiKey",
-        "title": "Noctilux: Remove API Key"
+        "command": "verbis.clearApiKey",
+        "title": "Verbis: Remove API Key"
       },
       {
-        "command": "noctilux.showSchema",
-        "title": "Noctilux: Show Schema & ER Diagram"
+        "command": "verbis.showSchema",
+        "title": "Verbis: Show Schema & ER Diagram"
       },
       {
-        "command": "noctilux.openQueryTree",
-        "title": "Noctilux: Open Query Tree"
+        "command": "verbis.openTree",
+        "title": "Verbis: Open Query Tree"
       },
       {
-        "command": "noctilux.runLastQuery",
-        "title": "Noctilux: Run Last Query"
+        "command": "verbis.runLastQuery",
+        "title": "Verbis: Run Last Query"
       },
       {
-        "command": "noctilux.addConnection",
-        "title": "Noctilux: Add Database Connection"
+        "command": "verbis.addConnection",
+        "title": "Verbis: Add Database Connection"
       },
       {
-        "command": "noctilux.runRobustnessTest",
-        "title": "Noctilux: Run Schema Evolution Robustness Test"
+        "command": "verbis.runRobustnessTest",
+        "title": "Verbis: Run Schema Evolution Robustness Test"
       },
       {
-        "command": "noctilux.restartBackend",
-        "title": "Noctilux: Restart Python Backend"
+        "command": "verbis.restartBackend",
+        "title": "Verbis: Restart Python Backend"
       },
       {
-        "command": "noctilux.openGlossaryEditor",
-        "title": "Noctilux: Open Business Glossary Editor"
+        "command": "verbis.openGlossaryEditor",
+        "title": "Verbis: Open Business Glossary Editor"
       }
     ],
     "keybindings": [
       {
-        "command": "noctilux.openChat",
+        "command": "verbis.openChat",
         "key": "ctrl+shift+q",
         "mac": "cmd+shift+q"
       },
       {
-        "command": "noctilux.runLastQuery",
+        "command": "verbis.runLastQuery",
         "key": "ctrl+shift+r",
         "mac": "cmd+shift+r"
       },
       {
-        "command": "noctilux.showSchema",
+        "command": "verbis.showSchema",
         "key": "ctrl+shift+s",
         "mac": "cmd+shift+s"
       },
       {
-        "command": "noctilux.openQueryTree",
+        "command": "verbis.openTree",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t"
       }
     ],
     "configuration": {
-      "title": "Noctilux",
+      "title": "Verbis",
       "properties": {
-        "noctilux.llm.provider": {
+        "verbis.llm.provider": {
           "type": "string",
-          "enum": ["gemini", "groq", "local"],
+          "enum": [
+            "gemini",
+            "groq",
+            "local"
+          ],
           "default": "gemini",
-          "description": "LLM provider. Gemini is recommended (free tier available)."
+          "description": "LLM provider. Gemini recommended — free tier at aistudio.google.com."
         },
-        "noctilux.llm.geminiModel": {
+        "verbis.llm.geminiModel": {
           "type": "string",
           "default": "gemini-2.5-flash",
-          "description": "Gemini model to use. Default is gemini-2.5-flash (free tier)."
+          "description": "Gemini model to use."
         },
-        "noctilux.llm.groqModel": {
+        "verbis.llm.groqModel": {
           "type": "string",
           "default": "llama-3.3-70b-versatile",
-          "description": "Groq model to use when provider is set to groq."
+          "description": "Groq model to use when provider is groq."
         },
-        "noctilux.privacy.enableShield": {
+        "verbis.privacy.enableShield": {
           "type": "boolean",
           "default": true,
           "description": "Anonymize schema names before sending to cloud LLM."
         },
-        "noctilux.query.rowLimit": {
+        "verbis.query.rowLimit": {
           "type": "number",
           "default": 500,
           "minimum": 10,
           "maximum": 10000,
-          "description": "Maximum rows returned per query execution."
+          "description": "Maximum rows returned per query."
         },
-        "noctilux.execution.timeoutSeconds": {
+        "verbis.execution.timeoutSeconds": {
           "type": "number",
           "default": 60,
           "description": "Query execution timeout in seconds."
         },
-        "noctilux.execution.readOnlyByDefault": {
+        "verbis.execution.readOnlyByDefault": {
           "type": "boolean",
           "default": true,
           "description": "Block INSERT / UPDATE / DELETE / DROP unless write mode explicitly enabled."
         },
-        "noctilux.backend.startPort": {
+        "verbis.backend.startPort": {
           "type": "number",
           "default": 8765,
           "description": "First port to attempt for the Python backend."
-        },
-        "noctilux.backend.pythonPath": {
-          "type": "string",
-          "default": "python3",
-          "description": "Python interpreter to use when launching the backend."
         }
       }
     }

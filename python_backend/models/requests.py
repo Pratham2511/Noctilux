@@ -6,9 +6,9 @@ class GenerateRequest(BaseModel):
     nl_query: str
     schema_context: str
     dialect: str = "postgresql"
-    query_type: str = "sql"        # "sql" | "nosql"
-    provider: str = "gemini"       # "gemini" | "groq" | "local"
-    api_key: str = ""              # passed from VS Code SecretStorage
+    query_type: str = "sql"          # "sql" | "nosql"
+    provider: str = "gemini"         # "gemini" | "groq" | "local"
+    api_key: str = ""                # from VS Code SecretStorage — never stored
     session_id: Optional[str] = None
     db_config_id: Optional[str] = None
 

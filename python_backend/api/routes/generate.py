@@ -22,8 +22,4 @@ async def generate(req: GenerateRequest):
             provider=req.provider,
             api_key=req.api_key,
         )
-    return {
-        "query": result,
-        "confidence": 0.9,
-        "alternatives": []
-    }
+    return {"query": result, "confidence": 0.9, "alternatives": []}

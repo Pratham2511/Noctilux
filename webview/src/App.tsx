@@ -146,7 +146,7 @@ function SchemaPlaceholderView() {
       <h2 className="text-base font-semibold mb-2">Schema &amp; ER Diagram</h2>
       <p className="text-qm-fg text-xs">
         Schema introspection is shown in the dedicated Schema Panel (use the
-        Command Palette &gt; "Noctilux: Show Schema / ER Diagram"). The ER
+        Command Palette &gt; "Verbis: Show Schema / ER Diagram"). The ER
         diagram is auto-generated via Mermaid.js from the introspected
         SQLAlchemy reflection and saved to <code>.qmind/er_diagram.svg</code>.
       </p>

@@ -1,12 +1,12 @@
-# Noctilux — VS Code Extension Development Notes
+# Verbis — VS Code Extension Development Notes
 
-This file collects notes for contributors and developers extending Noctilux.
+This file collects notes for contributors and developers extending Verbis.
 
 ## Dev Workflow
 
 ```bash
 # Terminal 1: Watch TypeScript (extension host)
-cd noctilux
+cd verbis
 npm run watch
 
 # Terminal 2: Watch React webview (Vite)
@@ -23,7 +23,7 @@ code --extensionDevelopmentPath=$(pwd)
 
 ## Debugging the Python Backend
 
-The backend logs to stderr (visible in VS Code Output panel → "Noctilux" channel).
+The backend logs to stderr (visible in VS Code Output panel → "Verbis" channel).
 For verbose logs:
 
 ```bash

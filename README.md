@@ -1,11 +1,11 @@
-# 🌙 Noctilux — Intelligent Database Assistant (VS Code Extension)
+# 🌙 Verbis — Intelligent Database Assistant (VS Code Extension)
 
 **Publisher:** pratham2511 · **Version:** 1.0.0 · **License:** MIT
-**Repository:** https://github.com/Pratham2511/Noctilux
+**Repository:** https://github.com/Pratham2511/Verbis
 
 > *Eliminate the barrier between human intent and database insight by transforming natural language into precise, optimized, safe, and explainable database operations — with team collaboration and enterprise-grade privacy — entirely within the developer's workspace.*
 
-Noctilux is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
+Verbis is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
 The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
 
@@ -14,7 +14,7 @@ The default LLM provider is **Google Gemini 2.5 Flash** (free tier available —
 ## 📦 Repository Layout
 
 ```
-noctilux/
+verbis/
 ├── package.json                  # VS Code extension manifest (marketplace-ready)
 ├── tsconfig.json
 ├── .vscodeignore                 # Excludes src/, webview/src/, python_backend/
@@ -32,7 +32,7 @@ noctilux/
 │   ├── extension.ts              # Activation: first-run API key prompt + command registration
 │   ├── BackendManager.ts         # Python subprocess lifecycle (start/stop/restart)
 │   ├── panels/
-│   │   ├── NoctiluxPanel.ts     # Main webview (chat + SQL + results)
+│   │   ├── VerbisPanel.ts     # Main webview (chat + SQL + results)
 │   │   ├── SchemaPanel.ts        # Schema explorer + ER diagram viewer
 │   │   └── QueryTreePanel.ts     # ReactFlow DAG panel
 │   ├── services/
@@ -51,7 +51,7 @@ noctilux/
 │   └── src/
 │       ├── main.tsx
 │       ├── App.tsx               # Routes Chat / Schema / Tree / Glossary / Robustness / Connections
-│       ├── index.css             # Tailwind + custom Noctilux styles
+│       ├── index.css             # Tailwind + custom Verbis styles
 │       ├── vscode.ts             # acquireVsCodeApi + postMessage helpers + useVsCode() hook
 │       └── components/
 │           ├── ChatPanel.tsx
@@ -113,19 +113,19 @@ noctilux/
 
 ## 🔑 Setting Your Gemini API Key
 
-Noctilux needs a free Gemini API key to generate SQL queries. There are three ways to enter it:
+Verbis needs a free Gemini API key to generate SQL queries. There are three ways to enter it:
 
 ### Option A — First-run welcome prompt
 
-On the very first activation, Noctilux shows an information message:
+On the very first activation, Verbis shows an information message:
 
-> *Welcome to Noctilux! A free Gemini API key is needed to generate queries.*
+> *Welcome to Verbis! A free Gemini API key is needed to generate queries.*
 
 Click **Set API Key** to paste your key directly, or **Get Free Key** to open [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) in your browser.
 
 ### Option B — From the Command Palette
 
-Run **`Noctilux: Set Gemini API Key`** from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`). You'll be asked which provider (`gemini` or `groq`) you're setting a key for, then prompted to paste it.
+Run **`Verbis: Set Gemini API Key`** from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`). You'll be asked which provider (`gemini` or `groq`) you're setting a key for, then prompted to paste it.
 
 Validators enforce the standard key prefixes:
 - **Gemini** keys must start with `AIza`
@@ -133,17 +133,17 @@ Validators enforce the standard key prefixes:
 
 ### Option C — From the Webview Settings Panel
 
-Open the **Connections** tab in the Noctilux webview. The **API Keys** card at the top lets you paste your Gemini or Groq key into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
+Open the **Connections** tab in the Verbis webview. The **API Keys** card at the top lets you paste your Gemini or Groq key into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
 
 ### Removing the key
 
-Run **`Noctilux: Remove API Key`** from the Command Palette. A modal confirmation is required.
+Run **`Verbis: Remove API Key`** from the Command Palette. A modal confirmation is required.
 
 ### Where the key lives
 
 - **OS keychain only** (via VS Code SecretStorage). It is **never** written to `.qmind/`, `config.json`, or any other file on disk.
 - The Python backend receives the key **per-request** in the JSON body of `POST /api/generate`. It is not stored in any server-side environment variable or file.
-- The active key is resolved from the `noctilux.llm.provider` setting (see below): `gemini` returns the Gemini key, `groq` returns the Groq key.
+- The active key is resolved from the `verbis.llm.provider` setting (see below): `gemini` returns the Gemini key, `groq` returns the Groq key.
 
 ---
 
@@ -233,8 +233,8 @@ flowchart TD
 ### 1. Install dependencies
 
 ```bash
-git clone https://github.com/Pratham2511/Noctilux.git
-cd Noctilux
+git clone https://github.com/Pratham2511/Verbis.git
+cd Verbis
 
 # Extension host (TypeScript)
 npm install
@@ -266,27 +266,27 @@ npm run compile        # produces out/
 
 ### 4. Run in VS Code
 
-- Open the `Noctilux/` folder in VS Code.
-- Press `F5` to launch an Extension Development Host with Noctilux loaded.
-- In the new window, open a workspace folder (any folder is fine — Noctilux will create `.qmind/` inside it).
+- Open the `Verbis/` folder in VS Code.
+- Press `F5` to launch an Extension Development Host with Verbis loaded.
+- In the new window, open a workspace folder (any folder is fine — Verbis will create `.qmind/` inside it).
 - On first activation you'll see the welcome prompt asking for your Gemini API key.
-- Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "Noctilux".
+- Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "Verbis".
 
 ### 5. Configure LLM provider (optional)
 
-In VS Code Settings → Extensions → Noctilux:
+In VS Code Settings → Extensions → Verbis:
 
 | Setting | Values | Default |
 |---------|--------|---------|
-| `noctilux.llm.provider` | `gemini` \| `groq` \| `local` | `gemini` |
-| `noctilux.llm.geminiModel` | any Gemini model tag | `gemini-2.5-flash` (free tier) |
-| `noctilux.llm.groqModel` | any Groq model tag | `llama-3.3-70b-versatile` |
-| `noctilux.privacy.enableShield` | `true` \| `false` | `true` |
-| `noctilux.query.rowLimit` | `10`–`10000` | `500` |
-| `noctilux.execution.timeoutSeconds` | int | `60` |
-| `noctilux.execution.readOnlyByDefault` | `true` \| `false` | `true` |
-| `noctilux.backend.startPort` | int | `8765` |
-| `noctilux.backend.pythonPath` | string | `python3` |
+| `verbis.llm.provider` | `gemini` \| `groq` \| `local` | `gemini` |
+| `verbis.llm.geminiModel` | any Gemini model tag | `gemini-2.5-flash` (free tier) |
+| `verbis.llm.groqModel` | any Groq model tag | `llama-3.3-70b-versatile` |
+| `verbis.privacy.enableShield` | `true` \| `false` | `true` |
+| `verbis.query.rowLimit` | `10`–`10000` | `500` |
+| `verbis.execution.timeoutSeconds` | int | `60` |
+| `verbis.execution.readOnlyByDefault` | `true` \| `false` | `true` |
+| `verbis.backend.startPort` | int | `8765` |
+| `verbis.backend.pythonPath` | string | `python3` |
 
 ### 6. (Optional) Set up Ollama for local mode
 
@@ -296,7 +296,7 @@ ollama pull sqlcoder
 ollama serve
 ```
 
-Then set `noctilux.llm.provider` to `local` in VS Code settings. No API key is required in local mode.
+Then set `verbis.llm.provider` to `local` in VS Code settings. No API key is required in local mode.
 
 ---
 
@@ -315,16 +315,16 @@ Then set `noctilux.llm.provider` to `local` in VS Code settings. No API key is r
 
 | Command | Purpose |
 |---------|---------|
-| `Noctilux: Open Chat Panel` | Open the main NL→SQL chat webview |
-| `Noctilux: Set Gemini API Key` | Set or replace your Gemini / Groq API key |
-| `Noctilux: Remove API Key` | Remove the stored key from the OS keychain |
-| `Noctilux: Show Schema & ER Diagram` | Open the schema explorer panel |
-| `Noctilux: Open Query Tree` | Open the ReactFlow DAG of query history |
-| `Noctilux: Run Last Query` | Re-execute the most recent saved query |
-| `Noctilux: Add Database Connection` | New connection wizard |
-| `Noctilux: Run Schema Evolution Robustness Test` | EvoSchema perturbation suite |
-| `Noctilux: Restart Python Backend` | Manually restart the FastAPI subprocess |
-| `Noctilux: Open Business Glossary Editor` | Glossary CRUD UI |
+| `Verbis: Open Chat Panel` | Open the main NL→SQL chat webview |
+| `Verbis: Set Gemini API Key` | Set or replace your Gemini / Groq API key |
+| `Verbis: Remove API Key` | Remove the stored key from the OS keychain |
+| `Verbis: Show Schema & ER Diagram` | Open the schema explorer panel |
+| `Verbis: Open Query Tree` | Open the ReactFlow DAG of query history |
+| `Verbis: Run Last Query` | Re-execute the most recent saved query |
+| `Verbis: Add Database Connection` | New connection wizard |
+| `Verbis: Run Schema Evolution Robustness Test` | EvoSchema perturbation suite |
+| `Verbis: Restart Python Backend` | Manually restart the FastAPI subprocess |
+| `Verbis: Open Business Glossary Editor` | Glossary CRUD UI |
 
 ---
 
@@ -372,16 +372,16 @@ curl -X POST http://127.0.0.1:8765/api/generate \
 - **Credentials never on disk.** API keys and DB passwords live exclusively in VS Code SecretStorage (backed by the OS keychain). They never appear in `config.json`, `memory.json`, or any other file under `.qmind/`.
 - **API key passed per request.** The Python backend receives the API key in the JSON body of `/api/generate`, uses it for a single LLM call, and discards it. The key is **not** stored in any environment variable, config file, or in-memory cache on the backend.
 - **Localhost only.** The Python backend binds exclusively to `127.0.0.1`. A defense-in-depth middleware refuses any non-loopback request.
-- **Read-only by default.** `INSERT` / `UPDATE` / `DELETE` / `DROP` statements are rejected unless `noctilux.execution.readOnlyByDefault` is set to `false`.
-- **Row limit + timeout.** Default 500 rows returned (configurable up to 10,000 via `noctilux.query.rowLimit`). 60-second query timeout.
-- **Privacy Shield.** When `noctilux.privacy.enableShield` is on, all schema names are tokenized (`table_A`, `col_1`) before the prompt is sent to the cloud LLM. The tokenization map is AES-256-GCM encrypted at `.qmind/priv_map.enc`.
+- **Read-only by default.** `INSERT` / `UPDATE` / `DELETE` / `DROP` statements are rejected unless `verbis.execution.readOnlyByDefault` is set to `false`.
+- **Row limit + timeout.** Default 500 rows returned (configurable up to 10,000 via `verbis.query.rowLimit`). 60-second query timeout.
+- **Privacy Shield.** When `verbis.privacy.enableShield` is on, all schema names are tokenized (`table_A`, `col_1`) before the prompt is sent to the cloud LLM. The tokenization map is AES-256-GCM encrypted at `.qmind/priv_map.enc`.
 - **PII masking.** Result columns are scanned via Microsoft Presidio (when available) + custom regex. Masking rules are configurable per project in `.qmind/pii_rules.json`. Every masked column is logged to `.qmind/pii_audit.log` for GDPR / CCPA / HIPAA compliance reporting.
 
 ---
 
 ## 📁 The `.qmind/` Workspace
 
-All Noctilux state lives in a single `.qmind/` folder at the workspace root. It is designed to be committed to version control alongside the codebase — this is the project's persistent "database intelligence" state.
+All Verbis state lives in a single `.qmind/` folder at the workspace root. It is designed to be committed to version control alongside the codebase — this is the project's persistent "database intelligence" state.
 
 ```
 .qmind/
@@ -440,7 +440,7 @@ npm run compile
 
 # 3. Package
 npx vsce package
-# → produces noctilux-db-assistant-1.0.0.vsix
+# → produces verbis-db-assistant-1.0.0.vsix
 
 # 4. Publish (requires a VS Code Marketplace PAT)
 npx vsce publish
@@ -509,7 +509,7 @@ Monaco requires web workers and `eval()`, both of which are blocked by the VS Co
 2. **OpenAI-compatible SDK** — Gemini's `generativelanguage.googleapis.com/v1beta/openai/` endpoint accepts the standard OpenAI Python client, so adding it required no new dependencies beyond `openai>=1.0.0`.
 3. **Fast** — Flash-tier latency is well within the < 3 s SQL-generation SLA for simple queries.
 
-If you prefer Groq or local Ollama, just flip `noctilux.llm.provider` in VS Code settings — no code changes required.
+If you prefer Groq or local Ollama, just flip `verbis.llm.provider` in VS Code settings — no code changes required.
 
 ---
 
@@ -590,7 +590,7 @@ The 18 novel contributions are documented in the project specification (`LLM_DB_
 
 To contribute:
 
-1. Fork the repo at https://github.com/Pratham2511/Noctilux
+1. Fork the repo at https://github.com/Pratham2511/Verbis
 2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Commit your changes following the existing commit-message style
 4. Open a Pull Request against `main`
@@ -620,4 +620,4 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full version history.
 
 | Version | Date | Changes |
 |---|---|---|
-| v1.0.0 | 2026-08-16 | Initial public release. Renamed from QueryMind / Lumina → Noctilux. Switched default LLM to Google Gemini 2.5 Flash (free tier). Added first-run API key prompt + `noctilux.setApiKey` / `noctilux.clearApiKey` commands + ApiKeySettings.tsx webview component. Marketplace-ready package.json (publisher `pratham2511`, galleryBanner, AI categories). All credentials stored in VS Code SecretStorage — never on disk. |
+| v1.0.0 | 2026-08-16 | Initial public release. Renamed from QueryMind / Lumina / Noctilux → Verbis. Switched default LLM to Google Gemini 2.5 Flash (free tier). Added first-run API key prompt + `verbis.setApiKey` / `verbis.clearApiKey` commands + ApiKeySettings.tsx webview component. Marketplace-ready package.json (publisher `pratham2511`, galleryBanner, AI categories). All credentials stored in VS Code SecretStorage — never on disk. |

@@ -42,8 +42,8 @@ export class BackendClient {
 
   // ─── NL → SQL/NoSQL Generation ─────────────────────────────────────────
   //
-  // `api_key` and `provider` are resolved by the caller (NoctiluxPanel.ts)
-  // via SecretsService.getActiveApiKey() and VS Code's `noctilux.llm.provider`
+  // `api_key` and `provider` are resolved by the caller (VerbisPanel.ts)
+  // via SecretsService.getActiveApiKey() and VS Code's `verbis.llm.provider`
   // setting, then forwarded to the Python backend, which uses them for the
   // actual Gemini / Groq / Ollama API call. No API key is ever stored on
   // the Python side.
@@ -54,7 +54,7 @@ export class BackendClient {
     llmMode?: 'cloud' | 'local' | 'auto';
     disambiguationAnswers?: Record<string, string>;
     apiKey?: string;     // resolved from SecretStorage by caller
-    provider?: string;   // 'gemini' | 'groq' | 'local' — from noctilux.llm.provider
+    provider?: string;   // 'gemini' | 'groq' | 'local' — from verbis.llm.provider
   }): Promise<{
     sql: string;
     confidence: number;

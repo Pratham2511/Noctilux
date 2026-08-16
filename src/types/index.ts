@@ -1,5 +1,5 @@
 // ============================================================================
-// Noctilux — Shared TypeScript Interfaces
+// Verbis — Shared TypeScript Interfaces
 // src/types/index.ts
 //
 // All types shared between the VS Code extension host and the React webview.

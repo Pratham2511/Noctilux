@@ -18,7 +18,7 @@ interface VsCodeApi {
 const vscode = window.acquireVsCodeApi ? window.acquireVsCodeApi() : null;
 
 if (!vscode) {
-  console.warn('[Noctilux] Not running inside VS Code webview — using mock.');
+  console.warn('[Verbis] Not running inside VS Code webview — using mock.');
 }
 
 export function postMessage(

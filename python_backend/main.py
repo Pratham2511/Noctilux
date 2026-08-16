@@ -1,4 +1,4 @@
-"""Noctilux — FastAPI application entry point.
+"""Verbis — FastAPI application entry point.
 
 Binds to 127.0.0.1 only (Part 9 — Localhost Only). Provides:
 
@@ -45,16 +45,16 @@ from api.routes import (  # noqa: E402
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup/shutdown lifecycle."""
-    logger.info(f'Noctilux backend starting on {settings.host}:{settings.port}')
+    logger.info(f'Verbis backend starting on {settings.host}:{settings.port}')
     logger.info(f'Workspace: {settings.workspace_path}')
     app.state.qm = init_app_state(settings)
     yield
-    logger.info('Noctilux backend shutting down…')
+    logger.info('Verbis backend shutting down…')
     await dispose_app_state(app.state.qm)
 
 
 app = FastAPI(
-    title='Noctilux Backend',
+    title='Verbis Backend',
     description='LLM-Based Intelligent Database Assistant — FastAPI service',
     version='3.0.0',
     lifespan=lifespan,
