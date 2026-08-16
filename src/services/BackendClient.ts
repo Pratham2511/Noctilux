@@ -7,7 +7,9 @@
 // distinguish 401 (invalid key), 429 (rate limit), 5xx, and network errors.
 // ============================================================================
 
-import fetch from 'node-fetch';
+// Uses Node's built-in global fetch (VS Code 1.85+ extension host = Node 18+).
+// Keep this extension dependency-free: node-fetch@3 is ESM-only and cannot be
+// required from the CommonJS out/ bundle.
 import {
   ChatMessage,
   ExecutionResult,
@@ -141,7 +143,7 @@ export class BackendClient {
         method,
         headers: body ? { 'Content-Type': 'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined,
-        signal: controller.signal as unknown as import('node-fetch').RequestInit['signal'],
+        signal: controller.signal,
       });
 
       if (!res.ok) {
