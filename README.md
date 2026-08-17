@@ -1,13 +1,85 @@
 # 🌙 Verbis — Intelligent Database Assistant (VS Code Extension)
 
-**Publisher:** pratham2511 · **Version:** 1.0.0 · **License:** MIT
-**Repository:** https://github.com/Pratham2511/Verbis
+**Publisher:** pratham2511 · **Version:** 1.1.1 · **License:** MIT
+**Repository:** https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant
 
 > *Eliminate the barrier between human intent and database insight by transforming natural language into precise, optimized, safe, and explainable database operations — with team collaboration and enterprise-grade privacy — entirely within the developer's workspace.*
 
 Verbis is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
 The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported, and API keys from **any provider — Gemini, Claude, Kimi, OpenAI, and others — are accepted** without format restrictions. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
+
+---
+
+## 🆕 What's New in v1.1.x
+
+### v1.1.1 — Backend install hotfix
+
+- **Fixed:** `.vscodeignore` was excluding `python_backend/**` entirely, so when Verbis was installed from the `.vsix`, none of the Python source files (`main.py`, `services/*.py`, `requirements.txt`) were present. The `BackendInstaller` then failed with a cryptic `uv failed (exit 2): File not found` error.
+- **Fix:** `.vscodeignore` now keeps all Python source files in the package and only excludes bulky/transient artifacts (`__pycache__/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`). Added a pre-flight guard in `BackendInstaller.install()` that throws a clear, actionable error if `requirements.txt` is missing.
+
+### v1.1.0 — Three major upgrades + 7 critical fixes (A–G)
+
+#### 1. Few-Shot LLM Intent Guard (replaces keyword filtering)
+
+Natural-language queries are now classified as `DATABASE` or `OFFTOPIC` using a few-shot LLM prompt with 15+ explicit examples at `temperature=0`. This correctly handles polysemous words that keyword filters get wrong:
+
+| Query | Old (keyword) | New (few-shot LLM) |
+|---|---|---|
+| `"weather data from sensors table"` | ❌ Blocked (contains "weather") | ✅ Passed (asks about data in a table) |
+| `"what is the weather today"` | ❌ Passed | ✅ Blocked (off-topic) |
+| `"calculate average revenue"` | ✅ Passed | ✅ Passed |
+
+A **200-entry LRU cache** (keyed on `(message, provider)`) ensures repeated queries are free. Cache stores the full `(intent, message)` tuple so the same off-topic query shows the same polite response each time. The cache is **auto-cleared** when you set/clear an API key or switch LLM provider (via the new `/api/intent/cache/clear` endpoint).
+
+#### 2. Auto-Install Backend Dependencies (`uv` + `globalStorageUri`)
+
+Users no longer need to open a terminal — Verbis **auto-creates a Python venv** on first activation and installs all dependencies (~120MB, ~60 seconds) with a progress notification.
+
+- The venv lives in `context.globalStorageUri` — **survives extension updates** (won't force reinstalls)
+- Uses `uv` for 10× faster installs (falls back to `pip` if `uv` unavailable)
+- "Install Now / Later" dialog + `Verbis: Install / Reinstall Backend` command
+- `verbis_ready` marker file skips install on subsequent activations
+- Slim `requirements.txt` — **no PyTorch, no spaCy, no onnxruntime** (PyTorch-heavy deps moved to `requirements-optional.txt`)
+
+#### 3. Text2Schema — Create Databases from Natural Language (arXiv 2503.23886)
+
+Verbis is the **first VS Code extension** to implement Text2Schema — converting a natural-language description of your data needs into a complete normalized database schema.
+
+```
+User: "I want a school management system with students, teachers,
+        courses, attendance, and grades"
+Verbis: Generates schema JSON → DDL → live ER diagram
+User:   "Add a library books table and a fee payments table"
+Verbis: Refines the schema, shows the updated ER diagram
+User:   "Looks good, create it"
+Verbis: Executes the DDL on your connected database
+```
+
+- **Structured JSON intermediate** — enables ER diagram + iterative refinement
+- **Dialect-aware DDL** — PostgreSQL, MySQL, SQLite (auto-increment types handled per-dialect)
+- **Portable foreign keys** — emitted as `CONSTRAINT ... FOREIGN KEY ... REFERENCES ...` table-level clauses (works in PostgreSQL/MySQL/SQLite — inline FK syntax breaks in Postgres/MySQL)
+- **Mermaid ER diagram** auto-generated from the schema JSON
+- **Iterative refinement** — "add a payments table" updates the existing schema without losing prior tables
+- **Copy DDL** + **Download as .sql** buttons in the UI
+- New endpoints: `POST /api/schema/create`, `POST /api/schema/refine`, `POST /api/schema/refresh`
+- After DDL execution, Verbis **auto-refreshes the schema cache + ChromaDB index** so the chat panel immediately knows about the new tables (no hallucinated SQL)
+
+#### 4. Full Connection-Selection Flow
+
+Multi-database users can now switch connections via the `Verbis: Select Database Connection` command (quick-pick UI). New connections are auto-set as active when added. `SCHEMA_EXECUTE` resolves the active connection via `resolveConnectionId()` with fallback to the first connection in `config.json` — no more hardcoded `'default'`.
+
+#### 5. Seven Critical Fixes (A–G)
+
+| Fix | What it does |
+|---|---|
+| **A** | `cachetools>=5.0.0` added EXPLICITLY to `requirements.txt` — verified that neither `chromadb` 1.5.9 nor `openai` directly requires it (relying on transitive deps is fragile) |
+| **B** | `clear_intent_cache()` wired via `/api/intent/cache/clear` endpoint + 3 call sites (setApiKey, clearApiKey, onDidChangeConfiguration) — stale cached classifications no longer persist after provider/key switches |
+| **C** | Schema cache + ChromaDB index auto-refreshed after `SCHEMA_EXECUTE` — chat panel never hallucinates about newly-created tables |
+| **D** | Full connection-selection flow — `verbis.selectConnection` command + `setActiveConnection()` + `resolveConnectionId()` helper |
+| **E** | `onDidChangeConfiguration` uses sync callback + `.then(noop, errHandler)` — NO floating promises, NO silently-swallowed errors (eslint-friendly) |
+| **F** | `/api/schema/refresh` is a POST endpoint (not a GET query param) — semantically a mutation, more robust than relying on `requestJson`'s implicit GET-with-no-body behavior |
+| **G** | `verbis.addConnection` uses the EXISTING `id` variable declared as `const id = crypto.randomUUID()` — doesn't invent a new variable name |
 
 ---
 
@@ -231,8 +303,8 @@ flowchart TD
 ### 1. Install dependencies
 
 ```bash
-git clone https://github.com/Pratham2511/Verbis.git
-cd Verbis
+git clone https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant.git
+cd Verbis-Intelligent-Database-Assistant
 
 # Extension host (TypeScript)
 npm install
@@ -242,7 +314,8 @@ cd webview
 npm install
 cd ..
 
-# Python backend
+# Python backend — only needed for local dev. End users: Verbis auto-installs
+# the venv on first activation via BackendInstaller (see "Auto-install" above).
 cd python_backend
 pip install -r requirements.txt
 cd ..
@@ -264,10 +337,12 @@ npm run compile        # produces out/
 
 ### 4. Run in VS Code
 
-- Open the `Verbis/` folder in VS Code.
+- Open the `Verbis-Intelligent-Database-Assistant/` folder in VS Code.
 - Press `F5` to launch an Extension Development Host with Verbis loaded.
 - In the new window, open a workspace folder (any folder is fine — Verbis will create `.qmind/` inside it).
-- On first activation you'll see the welcome prompt asking for your API key (any provider's key format is accepted).
+- **For end users (installed from .vsix):** On first activation, Verbis shows an "Install Now / Later" dialog and auto-creates a Python venv (~120MB, ~60s) using `uv`. You do NOT need to run `pip install` manually.
+- **For local dev (F5 from source):** Skip the auto-install — you already ran `pip install` in step 1.
+- You'll then see the welcome prompt asking for your API key (any provider's key format is accepted).
 - Use the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for "Verbis".
 
 ### 5. Configure LLM provider (optional)
@@ -314,12 +389,14 @@ Then set `verbis.llm.provider` to `local` in VS Code settings. No API key is req
 | Command | Purpose |
 |---------|---------|
 | `Verbis: Open Chat Panel` | Open the main NL→SQL chat webview |
-| `Verbis: Set Gemini API Key` | Set or replace your Gemini / Groq API key |
+| `Verbis: Set API Key` | Set or replace your Gemini / Groq API key |
 | `Verbis: Remove API Key` | Remove the stored key from the OS keychain |
 | `Verbis: Show Schema & ER Diagram` | Open the schema explorer panel |
 | `Verbis: Open Query Tree` | Open the ReactFlow DAG of query history |
 | `Verbis: Run Last Query` | Re-execute the most recent saved query |
-| `Verbis: Add Database Connection` | New connection wizard |
+| `Verbis: Add Database Connection` | New connection wizard (auto-sets new connection as active) |
+| `Verbis: Select Database Connection` | Quick-pick UI to switch active connection (v1.1.0+) |
+| `Verbis: Install / Reinstall Backend` | Manually trigger Python venv setup (v1.1.0+) |
 | `Verbis: Run Schema Evolution Robustness Test` | EvoSchema perturbation suite |
 | `Verbis: Restart Python Backend` | Manually restart the FastAPI subprocess |
 | `Verbis: Open Business Glossary Editor` | Glossary CRUD UI |
@@ -332,15 +409,19 @@ All endpoints are bound to `http://127.0.0.1:8765` (or first free port 8765–87
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET`    | `/api/health`         | Liveness check — returns `{status:"ok", version:"3.0.0"}` |
-| `POST`   | `/api/generate`        | NL → SQL pipeline (accepts `api_key` + `provider` in body) |
-| `POST`   | `/api/execute`         | Safe query execution (validation + timeout + row limit + PII masking) |
-| `GET`    | `/api/schema`          | Schema introspection + ChromaDB indexing |
-| `POST`   | `/api/schema/impact`   | DDL pre-execution impact analysis (Novel #9) |
-| `POST`   | `/api/robustness`      | EvoSchema perturbation test runner (Novel #16) |
-| `GET`    | `/api/glossary`        | Retrieve all glossary terms |
-| `POST`   | `/api/glossary`        | Add or update a business glossary term |
-| `DELETE` | `/api/shutdown`         | Graceful shutdown trigger |
+| `GET`    | `/api/health`             | Liveness check — returns `{status:"ok", version:"3.0.0"}` |
+| `POST`   | `/api/generate`            | NL → SQL pipeline (accepts `api_key` + `provider` in body) — gated by intent guard (v1.1.0+) |
+| `POST`   | `/api/intent/cache/clear`  | Clear intent classification cache (v1.1.0+, Fix B) |
+| `POST`   | `/api/execute`             | Safe query execution (validation + timeout + row limit + PII masking) |
+| `GET`    | `/api/schema`              | Schema introspection + ChromaDB indexing (cached) |
+| `POST`   | `/api/schema/create`       | Text2Schema — generate schema from NL description (v1.1.0+) |
+| `POST`   | `/api/schema/refine`       | Text2Schema — iterative refinement of existing schema (v1.1.0+) |
+| `POST`   | `/api/schema/refresh`      | Force-refresh schema cache + ChromaDB index after DDL (v1.1.0+, Fix C+F) |
+| `POST`   | `/api/schema/impact`       | DDL pre-execution impact analysis (Novel #9) |
+| `POST`   | `/api/robustness`          | EvoSchema perturbation test runner (Novel #16) |
+| `GET`    | `/api/glossary`            | Retrieve all glossary terms |
+| `POST`   | `/api/glossary`            | Add or update a business glossary term |
+| `DELETE` | `/api/shutdown`             | Graceful shutdown trigger |
 
 ### Example: curl
 
@@ -618,4 +699,6 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full version history.
 
 | Version | Date | Changes |
 |---|---|---|
+| v1.1.1 | 2026-08-17 | Hotfix: `.vscodeignore` was excluding `python_backend/**` entirely, causing backend install to fail with `uv failed (exit 2): File not found`. Now keeps all Python source files in the package; only excludes `__pycache__/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`. Added pre-flight guard in `BackendInstaller.install()` for clear error if `requirements.txt` is missing. |
+| v1.1.0 | 2026-08-17 | Three major upgrades: (1) Few-shot LLM intent guard with 200-entry LRU cache, replacing keyword filtering. (2) Auto-install backend dependencies via `uv` + `globalStorageUri` — no terminal required. (3) Text2Schema (arXiv 2503.23886) — NL → schema JSON → DDL → Mermaid ER diagram, with iterative refinement and Copy/Download buttons. Plus 7 critical fixes (A–G): cachetools explicit dep, cache invalidation wiring, schema refresh after DDL, full connection-selection flow, no floating promises, POST /api/schema/refresh, and using existing `id` variable in addConnection. |
 | v1.0.0 | 2026-08-16 | Initial public release. Renamed from QueryMind / Lumina / Noctilux → Verbis. Switched default LLM to Google Gemini 2.5 Flash (free tier). Added first-run API key prompt + `verbis.setApiKey` / `verbis.clearApiKey` commands + ApiKeySettings.tsx webview component. Marketplace-ready package.json (publisher `pratham2511`, galleryBanner, AI categories). All credentials stored in VS Code SecretStorage — never on disk. |
