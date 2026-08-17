@@ -97,6 +97,19 @@ export class BackendInstaller {
             this.context.extensionPath, 'python_backend', 'requirements.txt'
         );
 
+        // Guard: requirements.txt MUST exist in the extension folder.
+        // If it's missing, the .vsix was packaged without it (older builds
+        // excluded python_backend/** entirely). Surface a clear error instead
+        // of letting uv fail with a cryptic "File not found" message.
+        if (!fs.existsSync(reqFile)) {
+            throw new Error(
+                `requirements.txt not found at ${reqFile}. ` +
+                `The extension may have been packaged incorrectly. ` +
+                `Please reinstall Verbis from the VS Code Marketplace, or ` +
+                `report this issue at https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant/issues.`
+            );
+        }
+
         progress.report({ message: 'Checking Python installation...', increment: 5 });
         const sysPython = await this.getSystemPython();
 

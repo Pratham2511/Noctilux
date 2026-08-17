@@ -9,7 +9,14 @@ webview/tsconfig.json
 webview/tailwind.config.js
 webview/postcss.config.js
 webview/package.json
-python_backend/**
+# Keep python_backend source files (main.py, services/, api/, etc.) — required for backend to run
+# Only exclude bulky/transient artifacts inside python_backend:
+python_backend/__pycache__/**
+python_backend/**/__pycache__/**
+python_backend/venv/**
+python_backend/.pytest_cache/**
+python_backend/.mypy_cache/**
+python_backend/.ruff_cache/**
 src/**
 node_modules/**
 .gitignore

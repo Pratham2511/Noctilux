@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.1] — 2026-08-17
+
+### Fixed — Backend install failure on packaged extension
+
+**Bug:** `uv failed (exit 2): error: File not found:
+.python_backend/requirements.txt` — the extension's `.vscodeignore` was
+excluding `python_backend/**` entirely, so when Verbis was installed from the
+.vsix, none of the Python source files (`main.py`, `services/*.py`,
+`api/routes/*.py`, `requirements.txt`) were present in the extension folder.
+The `BackendInstaller` then failed because `requirements.txt` was missing.
+
+**Fix:**
+- Updated `.vscodeignore` to keep all `python_backend/` source files (they are
+  required for the backend subprocess to run). Only exclude bulky/transient
+  artifacts: `__pycache__/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`,
+  `.ruff_cache/`.
+- Added a pre-flight guard in `BackendInstaller.install()` that throws a clear,
+  actionable error if `requirements.txt` is missing — instead of letting
+  `uv` fail with a cryptic "File not found" message. The error message tells
+  the user to reinstall from the Marketplace or report the issue.
+
+---
+
 ## [1.1.0] — 2026-08-17
 
 ### Added — Three Major Upgrades + 7 Critical Fixes (A-G)
