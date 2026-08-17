@@ -10,13 +10,14 @@ import QueryTreeView from './components/QueryTreeView';
 import GlossaryEditor from './components/GlossaryEditor';
 import ConnectionForm from './components/ConnectionForm';
 import { ApiKeySettings } from './components/ApiKeySettings';
+import { SchemaCreator } from './components/SchemaCreator';
 import RobustnessReport from './components/RobustnessReport';
 import MessageBubble from './components/MessageBubble';
 import SQLCodeBlock from './components/SQLCodeBlock';
 import type { ChatMessage, BackendStatus } from '../../src/types';
 import { onMessage, postMessage } from './vscode';
 
-type Tab = 'chat' | 'schema' | 'tree' | 'glossary' | 'robustness' | 'connections';
+type Tab = 'chat' | 'schema' | 'createdb' | 'tree' | 'glossary' | 'robustness' | 'connections';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('chat');
@@ -93,7 +94,7 @@ export default function App() {
     <div className="flex flex-col h-screen">
       {/* Top tab bar */}
       <nav className="flex border-b border-qm-border text-xs">
-        {(['chat', 'schema', 'tree', 'glossary', 'robustness', 'connections'] as Tab[]).map(tab => (
+        {(['chat', 'schema', 'createdb', 'tree', 'glossary', 'robustness', 'connections'] as Tab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -126,6 +127,7 @@ export default function App() {
           <ChatPanel messages={messages} onSend={handleSend} />
         )}
         {activeTab === 'schema' && <SchemaPlaceholderView />}
+        {activeTab === 'createdb' && <SchemaCreator />}
         {activeTab === 'tree' && <QueryTreeView />}
         {activeTab === 'glossary' && <GlossaryEditor />}
         {activeTab === 'robustness' && <RobustnessReport />}

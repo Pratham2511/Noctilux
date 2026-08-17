@@ -21,6 +21,9 @@ export class VerbisPanel {
   private panel: vscode.WebviewPanel;
   private disposables: vscode.Disposable[] = [];
 
+  // Fix D — active connection tracking (replaces hardcoded 'default')
+  private activeConnectionId: string | null = null;
+
   public static createOrShow(
     context: vscode.ExtensionContext,
     client: BackendClient | null,
@@ -66,6 +69,24 @@ export class VerbisPanel {
     );
 
     this.panel.onDidDispose(() => this.dispose(), undefined, this.disposables);
+  }
+
+  // ── Fix D — Connection selection helpers ────────────────────────────
+  /** Called by extension.ts when user selects a connection (verbis.selectConnection
+   *  command) or after verbis.addConnection creates a new connection. */
+  public setActiveConnection(connectionId: string): void {
+    this.activeConnectionId = connectionId;
+  }
+
+  /** Resolve active connection with fallback to first connection in config.json. */
+  private async resolveConnectionId(): Promise<string | null> {
+    if (this.activeConnectionId) { return this.activeConnectionId; }
+    const cfg = await this.workspace.readConfig();
+    if (cfg.connections.length > 0) {
+      this.activeConnectionId = cfg.connections[0].id;
+      return this.activeConnectionId;
+    }
+    return null;
   }
 
   // ─── Message Routing ───────────────────────────────────────────────
@@ -214,6 +235,69 @@ export class VerbisPanel {
             requestId: msg.requestId,
             payload: { saved: true },
           });
+          break;
+        }
+
+        // ── Fix D — SELECT_CONNECTION: forward to extension host command ──
+        case 'SELECT_CONNECTION': {
+          await vscode.commands.executeCommand('verbis.selectConnection');
+          break;
+        }
+
+        // ── Fix C — Text2Schema: NL → schema JSON → DDL → Mermaid ──────
+        case 'SCHEMA_CREATE': {
+          const { description, dialect } = msg.payload as { description: string; dialect: string };
+          const apiKey = await this.secrets.getActiveApiKey() ?? '';
+          const provider = vscode.workspace.getConfiguration('verbis').get<string>('llm.provider', 'gemini');
+          try {
+            const result = await this.client.createSchema({ description, dialect, provider, apiKey });
+            this.panel.webview.postMessage({ type: 'SCHEMA_RESULT', payload: result });
+          } catch (e: any) {
+            this.panel.webview.postMessage({ type: 'SCHEMA_ERROR', payload: { message: e.message } });
+          }
+          break;
+        }
+
+        case 'SCHEMA_REFINE': {
+          const { schema, refinement, dialect } = msg.payload as { schema: any; refinement: string; dialect: string };
+          const apiKey = await this.secrets.getActiveApiKey() ?? '';
+          const provider = vscode.workspace.getConfiguration('verbis').get<string>('llm.provider', 'gemini');
+          try {
+            const result = await this.client.refineSchema({ schema, refinement, dialect, provider, apiKey });
+            this.panel.webview.postMessage({ type: 'SCHEMA_RESULT', payload: result });
+          } catch (e: any) {
+            this.panel.webview.postMessage({ type: 'SCHEMA_ERROR', payload: { message: e.message } });
+          }
+          break;
+        }
+
+        case 'SCHEMA_EXECUTE': {
+          const { ddl } = msg.payload as { ddl: string };
+          const connectionId = await this.resolveConnectionId();
+          if (!connectionId) {
+            this.panel.webview.postMessage({
+              type: 'SCHEMA_ERROR',
+              payload: { message: 'No database connection active. Add a connection first via Verbis: Add Database Connection.' },
+            });
+            break;
+          }
+          try {
+            await this.client.execute({
+              sql: ddl,
+              dbConfigId: connectionId,   // ← RESOLVED, not hardcoded 'default'
+              rowLimit: 0,                // DDL doesn't return rows
+            });
+            // Fix C: refresh schema cache + ChromaDB index so chat knows
+            // about the new tables. Wrapped in try/catch — non-fatal.
+            try {
+              await this.client.refreshSchema(connectionId);
+            } catch (refreshErr) {
+              console.warn('[Verbis] Schema refresh after DDL failed (non-fatal):', refreshErr);
+            }
+            this.panel.webview.postMessage({ type: 'SCHEMA_EXECUTED', payload: {} });
+          } catch (e: any) {
+            this.panel.webview.postMessage({ type: 'SCHEMA_ERROR', payload: { message: e.message } });
+          }
           break;
         }
 

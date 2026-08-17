@@ -42,6 +42,51 @@ export class BackendClient {
     return this.requestJson('/api/health', 'GET');
   }
 
+  // ── Intent cache invalidation (Fix B) ──────────────────────────────
+  async clearIntentCache(): Promise<{ status: string }> {
+    return this.requestJson('/api/intent/cache/clear', 'POST');
+  }
+
+  // ── Text2Schema (Novel #4 — arXiv 2503.23886) ──────────────────────
+  async createSchema(payload: {
+    description: string;
+    dialect: string;
+    provider: string;
+    apiKey: string;
+  }): Promise<{ schema: unknown; ddl: string; mermaid: string; table_count: number }> {
+    return this.requestJson('/api/schema/create', 'POST', {
+      description: payload.description,
+      dialect: payload.dialect,
+      provider: payload.provider,
+      api_key: payload.apiKey,
+    });
+  }
+
+  async refineSchema(payload: {
+    schema: unknown;
+    refinement: string;
+    dialect: string;
+    provider: string;
+    apiKey: string;
+  }): Promise<{ schema: unknown; ddl: string; mermaid: string; table_count: number }> {
+    return this.requestJson('/api/schema/refine', 'POST', {
+      existing_schema: payload.schema,
+      refinement: payload.refinement,
+      dialect: payload.dialect,
+      provider: payload.provider,
+      api_key: payload.apiKey,
+    });
+  }
+
+  // ── Schema refresh after DDL (Fix C + Fix F) ────────────────────────
+  // Forces schema.py to delete stale schema_cache.json and re-index ChromaDB.
+  // Called after SCHEMA_EXECUTE creates new tables. POST endpoint (not GET).
+  async refreshSchema(dbConfigId: string): Promise<{ tables: unknown[]; indexed: boolean }> {
+    return this.requestJson('/api/schema/refresh', 'POST', {
+      db_config_id: dbConfigId,
+    });
+  }
+
   // ─── NL → SQL/NoSQL Generation ─────────────────────────────────────────
   //
   // `api_key` and `provider` are resolved by the caller (VerbisPanel.ts)

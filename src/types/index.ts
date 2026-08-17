@@ -228,7 +228,15 @@ export type WebviewMessageType =
   | 'ERROR'
   | 'SETTINGS_UPDATED'
   | 'STORE_API_KEY'
-  | 'OPEN_EXTERNAL';
+  | 'OPEN_EXTERNAL'
+  | 'SELECT_CONNECTION'
+  | 'SCHEMA_CREATE'
+  | 'SCHEMA_REFINE'
+  | 'SCHEMA_EXECUTE'
+  | 'SCHEMA_RESULT'
+  | 'SCHEMA_EXECUTED'
+  | 'SCHEMA_ERROR'
+  | 'CONNECTIONS_UPDATED';
 
 // ─── Backend Lifecycle ────────────────────────────────────────────────────
 export interface BackendStatus {

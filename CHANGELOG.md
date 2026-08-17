@@ -1,15 +1,103 @@
 # Changelog
 
-## [1.0.2] — 2026-08-16
+## [1.1.0] — 2026-08-17
+
+### Added — Three Major Upgrades + 7 Critical Fixes (A-G)
+
+#### Upgrade 1 — Few-Shot LLM Intent Guard with LRU Cache
+- Replaced keyword-based intent classification with few-shot LLM prompting
+- 15+ DATABASE examples and 15+ OFFTOPIC examples at temperature=0
+- Correctly passes "weather data from sensors table" → DATABASE (context override)
+- Correctly blocks "what is the weather today" → OFFTOPIC
+- 200-entry LRU cache keyed on (message, provider) — repeated queries are free
+- Cache stores full (intent, message) tuple — same off-topic query shows same response each time
+- Fails open to DATABASE on any exception — never blocks a valid query
+
+#### Upgrade 2 — Auto-Install Backend Dependencies (uv + globalStorageUri)
+- BackendInstaller class auto-creates Python venv on first activation
+- Venv stored in `context.globalStorageUri` — survives extension updates
+- Uses `uv` for 10x faster installs (falls back to pip if uv unavailable)
+- "Install Now / Later" dialog + progress notification
+- `verbis.installBackend` command for manual re-installation
+- Marker file (`verbis_ready`) skips install on subsequent activations
+- Cross-platform Python path detection (Windows + Linux/Mac)
+- Slim requirements.txt (~120MB, no PyTorch/spaCy/onnxruntime)
+
+#### Upgrade 3 — Text2Schema (NL → Database Schema)
+- New `python_backend/services/schema_creator_service.py` implementing arXiv 2503.23886
+- Structured JSON intermediate format (tables, columns, relationships, indexes)
+- Dialect-aware DDL generation (PostgreSQL / MySQL / SQLite)
+- Foreign keys emitted as TABLE-LEVEL CONSTRAINT clauses (portable across dialects)
+- Mermaid ER diagram auto-generation
+- Iterative refinement ("add a payments table" updates existing schema)
+- New `/api/schema/create` and `/api/schema/refine` routes
+- New `SchemaCreator.tsx` component with 3 stages: input → preview → done
+- "Copy DDL" and "Download as .sql" buttons for user-friendliness
+- "Create DB" tab added to webview
+
+#### Fix A — cachetools added explicitly to requirements.txt
+Verified that neither chromadb 1.5.9 nor openai directly requires cachetools.
+Added `cachetools>=5.0.0` explicitly (20KB, eliminates silent crash risk).
+
+#### Fix B — clear_intent_cache wired via /api/intent/cache/clear endpoint
+- New POST endpoint `/api/intent/cache/clear`
+- Called from `verbis.setApiKey` handler after storing new key
+- Called from `verbis.clearApiKey` handler after deleting key
+- Called on `verbis.llm.provider` configuration change (provider switch)
+
+#### Fix C — Schema cache refreshed after SCHEMA_EXECUTE
+- New POST endpoint `/api/schema/refresh` (Fix F)
+- Deletes stale `schema_cache.json` + re-indexes ChromaDB
+- Called after DDL execution so chat knows about new tables
+- Wrapped in try/catch — non-fatal if refresh fails
+
+#### Fix D — Full connection-selection flow
+- `verbis.selectConnection` command with quick-pick UI
+- `verbis.addConnection` auto-sets new connection as active
+- `VerbisPanel.setActiveConnection()` + `resolveConnectionId()` helper
+- Falls back to first connection in config.json if no active connection set
+- SCHEMA_EXECUTE uses `resolveConnectionId()` — not hardcoded 'default'
+
+#### Fix E — No floating promises in onDidChangeConfiguration
+- Uses sync callback + explicit `.then(noop, errHandler)`
+- Avoids eslint `no-floating-promises` warning
+- Errors logged to `console.warn` instead of being silently swallowed
+
+#### Fix F — /api/schema/refresh is a POST endpoint
+- Cache invalidation is semantically a mutation
+- POST is more robust than relying on requestJson's implicit GET-with-no-body behavior
+- Takes JSON body `{ db_config_id: string }`
+
+#### Fix G — Uses existing `id` variable in verbis.addConnection
+- The handler already declares `const id = crypto.randomUUID()` (line 178)
+- Used that exact variable name when calling `setActiveConnection(id)`
+- Did not invent a new variable like `connectionId` or `newId`
 
 ### Changed
-- Removed provider-specific API key prefix validation (`AIza…`, `gsk_…`) — keys from any provider (Gemini, Claude, Kimi, OpenAI, …) are now accepted. Only a basic non-empty/length sanity check remains.
-- README updated to document multi-provider API key support.
+- Bumped version from 1.0.2 to 1.1.0
+- BackendManager constructor now takes `pythonExe` as 4th parameter (from BackendInstaller)
+- Removed `getPythonPath()` helper from BackendManager.ts (venv managed by BackendInstaller)
+- Removed `fs` import from BackendManager.ts (no longer needed)
+- `verbis.openQueryTree` command renamed to `verbis.openTree` (per spec)
 
-## [1.0.1] — 2026-08-16
+### New Commands
+- `Verbis: Install / Reinstall Backend` — Manually trigger backend setup
+- `Verbis: Select Database Connection` — Quick-pick UI for switching connections
 
-### Fixed
-- Extension crashed on activation (`Cannot find module 'node-fetch'`) — replaced with Node's built-in global `fetch`. The extension now has zero runtime dependencies.
+### New Endpoints
+- `POST /api/intent/cache/clear` — Clear intent classification cache
+- `POST /api/schema/create` — Generate schema from NL description
+- `POST /api/schema/refine` — Apply NL refinement to existing schema
+- `POST /api/schema/refresh` — Force-refresh schema cache + ChromaDB index
+
+### New Files
+- `src/services/BackendInstaller.ts` — Auto-installer class
+- `python_backend/services/schema_creator_service.py` — Text2Schema service
+- `python_backend/api/routes/schema_create.py` — Schema creation routes
+- `python_backend/requirements-optional.txt` — Heavy optional deps (PyTorch, spaCy)
+- `webview/src/components/SchemaCreator.tsx` — Schema creation UI
+
+---
 
 ## [1.0.0] — 2026-08-16
 

@@ -13,6 +13,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { BackendManager } from './BackendManager';
+import { BackendInstaller } from './services/BackendInstaller';
 import { VerbisPanel } from './panels/VerbisPanel';
 import { SchemaPanel } from './panels/SchemaPanel';
 import { QueryTreePanel } from './panels/QueryTreePanel';
@@ -24,7 +25,47 @@ let workspaceService: WorkspaceService | undefined;
 let secretsService: SecretsService | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  console.info('[Verbis] Activating extension v1.0.0…');
+  console.info('[Verbis] Activating extension v1.1.0…');
+
+  // ── Auto-install backend on first run (Fix D — Task 2.3) ────────────
+  const installer = new BackendInstaller(context);
+
+  if (!installer.isReady()) {
+    const choice = await vscode.window.showInformationMessage(
+      'Verbis needs to install its Python backend (~120MB, one-time setup, ~60 seconds).',
+      'Install Now',
+      'Later'
+    );
+    if (choice === 'Install Now') {
+      try {
+        await installer.installWithProgress();
+        vscode.window.showInformationMessage('✅ Verbis is ready!');
+      } catch (err: any) {
+        vscode.window.showErrorMessage(
+          `Verbis backend setup failed: ${err.message}. ` +
+          `Run "Verbis: Install / Reinstall Backend" from the Command Palette to retry.`
+        );
+        return;
+      }
+    } else {
+      vscode.window.showWarningMessage(
+        'Verbis needs the backend to work. Run "Verbis: Install / Reinstall Backend" when ready.'
+      );
+      return;
+    }
+  }
+
+  // ── Register reinstall command (Task 2.3) ──────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('verbis.installBackend', async () => {
+      try {
+        await installer.installWithProgress();
+        vscode.window.showInformationMessage('✅ Verbis backend reinstalled.');
+      } catch (err: any) {
+        vscode.window.showErrorMessage(`Reinstall failed: ${err.message}`);
+      }
+    })
+  );
 
   // ─── 0. Initialize SecretsService (VS Code SecretStorage) ─────────────
   secretsService = new SecretsService(context);
@@ -65,10 +106,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const backendDir = path.join(context.extensionPath, 'python_backend');
   const backendScriptPath = path.join(backendDir, 'main.py');
 
+  // Task 2.3: pass installer.pythonExe to BackendManager (4th param)
   backendManager = new BackendManager(
     backendScriptPath,
     backendDir,
     workspaceRoot,
+    installer.pythonExe,
     startPort
   );
 
@@ -100,6 +143,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       if (provider && secretsService) {
         await promptForKey(secretsService, provider.value as 'gemini' | 'groq');
+        // Fix B: clear intent cache after setting a new key
+        if (backendManager?.getClient()) {
+          try {
+            await backendManager.getClient().clearIntentCache();
+          } catch (err) {
+            console.warn('[Verbis] Intent cache clear failed after setApiKey:', err);
+          }
+        }
       }
     }),
 
@@ -111,7 +162,39 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       if (confirmed === 'Remove' && secretsService) {
         await secretsService.deleteGeminiKey();
+        // Fix B: clear intent cache after deleting the key
+        if (backendManager?.getClient()) {
+          try {
+            await backendManager.getClient().clearIntentCache();
+          } catch (err) {
+            console.warn('[Verbis] Intent cache clear failed after clearApiKey:', err);
+          }
+        }
         vscode.window.showInformationMessage('Verbis: API key removed.');
+      }
+    }),
+
+    // Fix D (Task 3.5 Step 2) — verbis.selectConnection command
+    vscode.commands.registerCommand('verbis.selectConnection', async () => {
+      if (!workspaceService) return;
+      const cfg = await workspaceService.readConfig();
+      if (cfg.connections.length === 0) {
+        vscode.window.showInformationMessage('No connections saved. Run "Verbis: Add Database Connection" first.');
+        return;
+      }
+      const items = cfg.connections.map(c => ({
+        label: c.name,
+        description: c.dialect,
+        detail: `${c.user}@${c.host}:${c.port}/${c.database}`,
+        id: c.id,
+      }));
+      const picked = await vscode.window.showQuickPick(items, {
+        title: 'Select Database Connection',
+        placeHolder: 'Choose which database to query',
+      });
+      if (picked) {
+        VerbisPanel.currentPanel?.setActiveConnection(picked.id);
+        vscode.window.setStatusBarMessage(`Verbis: active connection → ${picked.label}`, 3000);
       }
     }),
 
@@ -185,6 +268,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         port: parseInt(portStr || '5432', 10), database, user,
       });
       await workspaceService.writeConfig(cfg);
+      // Fix D + Fix G: auto-set the new connection as active.
+      // `id` is the existing variable declared above as `const id = crypto.randomUUID()`.
+      // Do NOT invent a new variable name — use `id` directly.
+      VerbisPanel.currentPanel?.setActiveConnection(id);
+      vscode.window.setStatusBarMessage(`Verbis: active connection → ${name}`, 3000);
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);
     }),
 
@@ -260,6 +348,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           return 'Invalid robustness report payload.';
         }
       },
+    })
+  );
+
+  // ── Fix E (Task 1.4) — Configuration change listener for provider switches ──
+  // CRITICAL: use a SYNC callback. onDidChangeConfiguration's signature is
+  // (e: ConfigurationChangeEvent) => any — it does NOT await the callback.
+  // An async callback would create a floating promise (eslint flags this),
+  // and any rejection would be silently swallowed. Use the explicit
+  // .then(noop, errHandler) pattern instead:
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('verbis.llm.provider')) {
+        backendManager?.getClient()?.clearIntentCache()
+          ?.then(
+            () => { /* cache cleared successfully */ },
+            err => console.warn('[Verbis] Intent cache clear failed after provider change:', err)
+          );
+      }
     })
   );
 

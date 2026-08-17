@@ -2,19 +2,13 @@
 // BackendManager — Python subprocess lifecycle
 // src/BackendManager.ts
 //
-// Implements the lifecycle described in Part 8 of the spec:
-//   1. Find a free port (scan 8765..8775)
-//   2. Spawn `python main.py --port <p> --workspace <path>` using cross-platform
-//      venv Python path resolver (falls back to system Python if no venv)
-//   3. Poll GET /api/health every 500ms (timeout 10s)
-//   4. On success: emit 'ready'
-//   5. On crash: auto-restart once; if second crash within 30s, stop
-//   6. On deactivate: DELETE /api/shutdown then kill
+// The venv is created by BackendInstaller (stored in globalStorageUri, survives
+// extension updates). BackendManager receives the resolved `pythonExe` path
+// as a constructor parameter — it does NOT look for venv inside python_backend/.
 // ============================================================================
 
 import { ChildProcess, spawn } from 'child_process';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as net from 'net';
 import { EventEmitter } from 'events';
 import * as vscode from 'vscode';
@@ -25,29 +19,6 @@ const MAX_PORT_RETRIES = 10;
 const HEALTH_CHECK_INTERVAL_MS = 500;
 const HEALTH_CHECK_TIMEOUT_MS = 10_000;
 const CRASH_RESTART_WINDOW_MS = 30_000;
-
-/**
- * Cross-platform Python venv path resolver.
- *
- * Looks for `python_backend/venv/` created by the user (or by the publish
- * workflow). Falls back to system `python3` (or `python` on Windows) if the
- * venv doesn't exist — this keeps the extension usable during development
- * without requiring a venv setup step.
- */
-function getPythonPath(backendDir: string): string {
-    if (process.platform === 'win32') {
-        const venvPython = path.join(backendDir, 'venv', 'Scripts', 'python.exe');
-        if (fs.existsSync(venvPython)) {
-            return venvPython;
-        }
-        return 'python';  // fallback: system Python on PATH
-    }
-    const venvPython = path.join(backendDir, 'venv', 'bin', 'python');
-    if (fs.existsSync(venvPython)) {
-        return venvPython;
-    }
-    return 'python3';  // fallback: system Python on PATH
-}
 
 export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
@@ -60,6 +31,7 @@ export class BackendManager extends EventEmitter {
     private readonly backendScriptPath: string,
     private readonly backendDir: string,
     private readonly workspacePath: string,
+    private readonly pythonExe: string,           // ← from BackendInstaller
     private readonly startPort: number = 8765
   ) {
     super();
@@ -82,12 +54,9 @@ export class BackendManager extends EventEmitter {
 
     this.client = new BackendClient(`http://127.0.0.1:${this.port}`);
 
-    // Resolve Python executable (venv-aware, cross-platform)
-    const pythonPath = getPythonPath(this.backendDir);
-
-    // Spawn Python process
+    // Spawn Python process using the resolved pythonExe from BackendInstaller
     this.process = spawn(
-      pythonPath,
+      this.pythonExe,
       [this.backendScriptPath, '--port', String(this.port), '--workspace', this.workspacePath],
       { cwd: this.backendDir, env: { ...process.env }, detached: false }
     );

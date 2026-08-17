@@ -39,6 +39,7 @@ from api.routes import (  # noqa: E402
     robustness,
     glossary,
     health,
+    schema_create,
 )
 
 
@@ -87,6 +88,7 @@ app.include_router(schema.router, prefix='/api', tags=['schema'])
 app.include_router(impact.router, prefix='/api/schema', tags=['impact'])
 app.include_router(robustness.router, prefix='/api', tags=['robustness'])
 app.include_router(glossary.router, prefix='/api', tags=['glossary'])
+app.include_router(schema_create.router, prefix='', tags=['schema_create'])
 
 
 # ─── Graceful Shutdown Endpoint ─────────────────────────────────────────

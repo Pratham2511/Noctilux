@@ -1,31 +1,24 @@
-"""GET /api/schema — Schema introspection + ChromaDB indexing."""
+"""GET /api/schema — Schema introspection + ChromaDB indexing.
+POST /api/schema/refresh — Force-refresh schema cache + ChromaDB index (Fix C + Fix F).
+"""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Request, HTTPException
+from pydantic import BaseModel
 from loguru import logger
 
 router = APIRouter()
 
 
-@router.get('/schema')
-async def get_schema(dbConfigId: str, request: Request) -> Dict[str, Any]:
-    state = request.app.state.qm
-    pool = state.db_pools.get(dbConfigId)
-    if pool is None:
-        raise HTTPException(404, detail=f'No DB connection registered for id={dbConfigId}')
+class RefreshSchemaRequest(BaseModel):
+    db_config_id: str
 
-    # Check cache first
-    cache_path = state.workspace_path / 'schema_cache.json'
-    if cache_path.exists():
-        import json
-        cached = json.loads(cache_path.read_text())
-        logger.info('Returning cached schema (use ?refresh=1 to force)')
-        return {'tables': cached, 'indexed': True}
 
-    # Introspect via SQLAlchemy reflection
+def _introspect_schema(pool, workspace_path, state) -> List[Dict[str, Any]]:
+    """Shared introspection logic — used by both GET /schema and POST /schema/refresh."""
     from sqlalchemy import inspect, MetaData
     inspector = inspect(pool)
     metadata = MetaData()
@@ -78,9 +71,62 @@ async def get_schema(dbConfigId: str, request: Request) -> Dict[str, Any]:
 
     # Cache to disk
     import json
+    cache_path = workspace_path / 'schema_cache.json'
     cache_path.write_text(json.dumps(tables, indent=2, default=str))
 
     # Index into ChromaDB (Novel #3a — Schema RAG)
     state.rag.index_schema(tables)
 
+    return tables
+
+
+@router.get('/schema')
+async def get_schema(dbConfigId: str, request: Request) -> Dict[str, Any]:
+    state = request.app.state.qm
+    pool = state.db_pools.get(dbConfigId)
+    if pool is None:
+        raise HTTPException(404, detail=f'No DB connection registered for id={dbConfigId}')
+
+    # Check cache first
+    cache_path = state.workspace_path / 'schema_cache.json'
+    if cache_path.exists():
+        import json
+        cached = json.loads(cache_path.read_text())
+        logger.info('Returning cached schema (use POST /api/schema/refresh to force)')
+        return {'tables': cached, 'indexed': True}
+
+    # Introspect via SQLAlchemy reflection
+    tables = _introspect_schema(pool, state.workspace_path, state)
+    return {'tables': tables, 'indexed': True}
+
+
+@router.post('/schema/refresh')
+async def refresh_schema(req: RefreshSchemaRequest, request: Request):
+    """
+    Force-refresh the schema cache + ChromaDB index for a connection.
+
+    Called by extension.ts after SCHEMA_EXECUTE creates new tables. Without
+    this, the user immediately switching to Chat gets hallucinated SQL
+    because the schema context doesn't include the just-created tables.
+
+    Fix F: This is a POST endpoint (not a GET query param) because cache
+    invalidation is semantically a mutation, and POST is more robust than
+    relying on requestJson's implicit GET-with-no-body behavior.
+    """
+    state = request.app.state.qm
+    pool = state.db_pools.get(req.db_config_id)
+    if pool is None:
+        raise HTTPException(404, detail=f'No DB connection registered for id={req.db_config_id}')
+
+    cache_path = state.workspace_path / 'schema_cache.json'
+
+    # Delete stale cache so the next introspection runs fresh
+    if cache_path.exists():
+        cache_path.unlink()
+        logger.info(f'Schema cache deleted for connection {req.db_config_id}')
+
+    # Re-introspect + re-index ChromaDB
+    tables = _introspect_schema(pool, state.workspace_path, state)
+
+    logger.info(f'Schema refreshed for connection {req.db_config_id}: {len(tables)} tables indexed')
     return {'tables': tables, 'indexed': True}
