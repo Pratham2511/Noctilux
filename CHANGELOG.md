@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.5] — 2026-08-19
+
+### Added — Sidebar chat (Copilot-Chat-style)
+
+- New `verbis.chatView` sidebar webview (`ChatViewProvider`, a
+  `vscode.WebviewViewProvider`) inside the Verbis activity-bar container —
+  the chat now opens next to your code like Copilot Chat / Cline instead of
+  only as an editor tab.
+- `Verbis: Open Chat` (`Ctrl+Shift+Q`) now focuses the sidebar chat view.
+- The editor-tab chat panel is still available via the new
+  `Verbis: Open Chat in Editor Panel` command.
+- The sidebar chat shares the same React bundle and full message protocol
+  (GENERATE_SQL, EXECUTE_SQL, glossary, Text2Schema, connections, backend
+  status) as the editor panel.
+- Connection selection (`verbis.selectConnection`, `verbis.addConnection`)
+  now syncs the active connection + connection list to both chat hosts.
+
+---
+
 ## [1.1.4] — 2026-08-19
 
 ### Fixed — Chat input invisible + connection form not saving

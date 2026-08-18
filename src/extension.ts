@@ -20,6 +20,7 @@ import { QueryTreePanel } from './panels/QueryTreePanel';
 import { WorkspaceService } from './services/WorkspaceService';
 import { SecretsService } from './services/SecretsService';
 import { ConnectionsProvider, SchemaTreeProvider, HistoryProvider } from './views/SidebarProviders';
+import { ChatViewProvider } from './views/ChatViewProvider';
 
 let backendManager: BackendManager | undefined;
 let workspaceService: WorkspaceService | undefined;
@@ -124,25 +125,38 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
   });
 
+  // ─── 2b. Register sidebar view providers ─────────────────────────────
+  // package.json declares verbis.chatView / verbis.connections / verbis.schema /
+  // verbis.history under the Verbis activity bar container. Without these
+  // registrations the sidebar renders permanently empty sections.
+  const connectionsProvider = new ConnectionsProvider(workspaceService);
+  const schemaTreeProvider = new SchemaTreeProvider(() => backendManager?.getClient() ?? null);
+  const historyProvider = new HistoryProvider(workspaceService);
+  const chatViewProvider = new ChatViewProvider(
+    context,
+    () => backendManager?.getClient() ?? null,
+    workspaceService,
+    secretsService
+  );
+
   backendManager.on('status', (status) => {
     VerbisPanel.currentPanel?.postMessage({
       type: 'BACKEND_STATUS',
       payload: status,
     });
+    chatViewProvider.postMessage({
+      type: 'BACKEND_STATUS',
+      payload: status,
+    });
   });
-
-  // ─── 2b. Register sidebar view providers ─────────────────────────────
-  // package.json declares verbis.connections / verbis.schema / verbis.history
-  // under the Verbis activity bar container. Without these registrations the
-  // sidebar renders three permanently empty sections.
-  const connectionsProvider = new ConnectionsProvider(workspaceService);
-  const schemaTreeProvider = new SchemaTreeProvider(() => backendManager?.getClient() ?? null);
-  const historyProvider = new HistoryProvider(workspaceService);
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('verbis.connections', connectionsProvider),
     vscode.window.registerTreeDataProvider('verbis.schema', schemaTreeProvider),
     vscode.window.registerTreeDataProvider('verbis.history', historyProvider),
+    vscode.window.registerWebviewViewProvider('verbis.chatView', chatViewProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
   );
 
   // Refresh schema tree when backend becomes ready
@@ -220,11 +234,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
       if (picked) {
         VerbisPanel.currentPanel?.setActiveConnection(picked.id);
+        chatViewProvider.setActiveConnection(picked.id);
         vscode.window.setStatusBarMessage(`Verbis: active connection → ${picked.label}`, 3000);
       }
     }),
 
-    vscode.commands.registerCommand('verbis.openChat', () => {
+    vscode.commands.registerCommand('verbis.openChat', async () => {
+      if (!workspaceService || !secretsService || !backendManager) return;
+      // Focus the sidebar chat view (Copilot-Chat-style). This reveals the
+      // Verbis activity-bar container and the Chat view inside it.
+      await vscode.commands.executeCommand('verbis.chatView.focus');
+    }),
+
+    vscode.commands.registerCommand('verbis.openChatPanel', () => {
       if (!workspaceService || !secretsService || !backendManager) return;
       VerbisPanel.createOrShow(
         context,
@@ -298,7 +320,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // `id` is the existing variable declared above as `const id = crypto.randomUUID()`.
       // Do NOT invent a new variable name — use `id` directly.
       VerbisPanel.currentPanel?.setActiveConnection(id);
+      chatViewProvider.setActiveConnection(id);
       await VerbisPanel.currentPanel?.pushConnections();
+      await chatViewProvider.pushConnections();
       connectionsProvider.refresh();
       vscode.window.setStatusBarMessage(`Verbis: active connection → ${name}`, 3000);
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);

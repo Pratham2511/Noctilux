@@ -1,6 +1,6 @@
 # 🌙 Verbis — Intelligent Database Assistant (VS Code Extension)
 
-**Publisher:** pratham2511 · **Version:** 1.1.4 · **License:** MIT
+**Publisher:** pratham2511 · **Version:** 1.1.5 · **License:** MIT
 **Repository:** https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant
 
 > *Eliminate the barrier between human intent and database insight by transforming natural language into precise, optimized, safe, and explainable database operations — with team collaboration and enterprise-grade privacy — entirely within the developer's workspace.*
@@ -12,6 +12,13 @@ The default LLM provider is **Google Gemini 2.5 Flash** (free tier available —
 ---
 
 ## 🆕 What's New in v1.1.x
+
+### v1.1.5 — Sidebar chat (Copilot-Chat-style)
+
+- **New:** The Verbis chat now lives in the **Verbis activity-bar container as a native sidebar view** (`verbis.chatView`, a `WebviewViewProvider`) — same UX as Copilot Chat / Cline. Click the Verbis icon in the activity bar and the chat is right there next to your code; no more opening a separate editor tab.
+- `Verbis: Open Chat` (`Ctrl+Shift+Q`) now focuses the sidebar chat view. The old editor-tab panel is still available via `Verbis: Open Chat in Editor Panel` if you prefer a full-width view.
+- The sidebar chat shares the same React bundle and message protocol as the editor panel — connections, backend status, SQL generation, execution, glossary, and Text2Schema all work identically in both hosts.
+- Connection selection (`verbis.selectConnection`, `verbis.addConnection`) now syncs to both the sidebar chat and the editor panel.
 
 ### v1.1.4 — Chat input + connection flow fixes
 
@@ -129,6 +136,7 @@ verbis/
 │   │   ├── WorkspaceService.ts   # .qmind/ file I/O
 │   │   └── BackendClient.ts      # HTTP client (forwards api_key + provider to backend)
 │   ├── views/
+│   │   ├── ChatViewProvider.ts   # Sidebar chat webview (Copilot-Chat-style)
 │   │   └── SidebarProviders.ts   # Connections / Schema / Recent Queries tree views
 │   └── types/index.ts            # Shared TypeScript interfaces + WebviewMessageType union
 │

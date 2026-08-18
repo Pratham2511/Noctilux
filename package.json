@@ -2,7 +2,7 @@
   "name": "verbis-db-assistant",
   "displayName": "Verbis — Intelligent Database Assistant",
   "description": "Talk to any database in plain English. Verbis converts natural language into optimized SQL and NoSQL queries, explains results, tracks query history, and protects your data — all inside VS Code.",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "publisher": "pratham2511",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -59,6 +59,11 @@
     "views": {
       "verbis-explorer": [
         {
+          "id": "verbis.chatView",
+          "name": "Chat",
+          "type": "webview"
+        },
+        {
           "id": "verbis.connections",
           "name": "Connections"
         },
@@ -83,7 +88,11 @@
       },
       {
         "command": "verbis.openChat",
-        "title": "Verbis: Open Chat Panel"
+        "title": "Verbis: Open Chat"
+      },
+      {
+        "command": "verbis.openChatPanel",
+        "title": "Verbis: Open Chat in Editor Panel"
       },
       {
         "command": "verbis.setApiKey",
