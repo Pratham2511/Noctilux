@@ -324,11 +324,14 @@ export class VerbisPanel {
   // ─── HTML Shell ────────────────────────────────────────────────────
   private getHtml(): string {
     const nonce = getNonce();
+    // Vite outputs assets/index.js + assets/index.css (see webview/vite.config.ts).
+    // Previously this pointed at main.js/main.css which do not exist — the
+    // chat webview rendered a blank page because the script 404'd.
     const scriptUri = this.panel.webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist', 'assets', 'main.js'))
+      vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist', 'assets', 'index.js'))
     );
     const styleUri = this.panel.webview.asWebviewUri(
-      vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist', 'assets', 'main.css'))
+      vscode.Uri.file(path.join(this.context.extensionPath, 'webview', 'dist', 'assets', 'index.css'))
     );
 
     return /*html*/ `<!DOCTYPE html>

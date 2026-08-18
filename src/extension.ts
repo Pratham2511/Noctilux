@@ -19,6 +19,7 @@ import { SchemaPanel } from './panels/SchemaPanel';
 import { QueryTreePanel } from './panels/QueryTreePanel';
 import { WorkspaceService } from './services/WorkspaceService';
 import { SecretsService } from './services/SecretsService';
+import { ConnectionsProvider, SchemaTreeProvider, HistoryProvider } from './views/SidebarProviders';
 
 let backendManager: BackendManager | undefined;
 let workspaceService: WorkspaceService | undefined;
@@ -128,6 +129,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       type: 'BACKEND_STATUS',
       payload: status,
     });
+  });
+
+  // ─── 2b. Register sidebar view providers ─────────────────────────────
+  // package.json declares verbis.connections / verbis.schema / verbis.history
+  // under the Verbis activity bar container. Without these registrations the
+  // sidebar renders three permanently empty sections.
+  const connectionsProvider = new ConnectionsProvider(workspaceService);
+  const schemaTreeProvider = new SchemaTreeProvider(() => backendManager?.getClient() ?? null);
+  const historyProvider = new HistoryProvider(workspaceService);
+
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('verbis.connections', connectionsProvider),
+    vscode.window.registerTreeDataProvider('verbis.schema', schemaTreeProvider),
+    vscode.window.registerTreeDataProvider('verbis.history', historyProvider),
+  );
+
+  // Refresh schema tree when backend becomes ready
+  backendManager.on('status', (status) => {
+    if (status.state === 'ready') {
+      schemaTreeProvider.refresh();
+      connectionsProvider.refresh();
+      historyProvider.refresh();
+    }
   });
 
   // ─── 3. Register commands ───────────────────────────────────────────

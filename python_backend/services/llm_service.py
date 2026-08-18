@@ -1,8 +1,19 @@
 """
 LLM Service — Gemini 2.5 Flash (primary) + Groq + Ollama local mode.
 API key is passed per-request from VS Code SecretStorage. Nothing stored server-side.
+
+Exposes two APIs:
+- Module-level functions (generate_sql, generate_nosql, …) used by api/routes/*.
+- LLMRouter class used by services/* via dependency injection (api/dependencies.py).
 """
+from __future__ import annotations
+
+import threading
+from dataclasses import dataclass
+
 from openai import AsyncOpenAI
+
+from config import Settings
 
 
 def _get_client(provider: str, api_key: str) -> tuple[AsyncOpenAI, str]:
@@ -118,3 +129,87 @@ async def generate_narrative(
         max_tokens=1024,
     )
     return r.choices[0].message.content.strip()
+
+
+# ─── LLMRouter — class-based API used via dependency injection ───────────
+# Imported by api/dependencies.py and services/{sql_generator,nosql_generator,
+# narrative_service,plan_explainer,federated_service}. Without this class the
+# backend crashes at import time with:
+#   ImportError: cannot import name 'LLMRouter' from 'services.llm_service'
+
+
+@dataclass
+class LLMResponse:
+    """Result of a single LLM completion call."""
+    text: str
+    error: str
+    mode: str  # 'cloud' | 'local'
+
+
+class LLMRouter:
+    """Routes completion requests to a cloud provider or a local model.
+
+    Constructed once at startup with the app Settings. The API key is NOT
+    stored — it is supplied per-call by the extension (thread-local override)
+    or falls back to settings.cloud_api_key / QM_CLOUD_API_KEY env var.
+    """
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._local = threading.local()
+
+    def set_api_key(self, api_key: str, provider: str = '') -> None:
+        """Set the request-scoped API key (called by route handlers)."""
+        self._local.api_key = api_key
+        if provider:
+            self._local.provider = provider
+
+    def _resolve(self, use_cloud: bool) -> tuple[AsyncOpenAI, str, str]:
+        """Pick client/model/mode based on settings + per-call overrides."""
+        api_key = getattr(self._local, 'api_key', '') or self._settings.cloud_api_key
+        provider = getattr(self._local, 'provider', '') or ''
+
+        if not use_cloud or self._settings.llm_mode == 'local':
+            client, model = _get_client('local', '')
+            return client, model, 'local'
+
+        if provider:
+            client, model = _get_client(provider, api_key)
+            return client, model, 'cloud'
+
+        # Cloud mode via settings (generic OpenAI-compatible endpoint)
+        if api_key:
+            return (
+                AsyncOpenAI(api_key=api_key, base_url=self._settings.cloud_endpoint),
+                self._settings.cloud_model,
+                'cloud',
+            )
+
+        # llm_mode == 'auto' with no key → fall back to local
+        client, model = _get_client('local', '')
+        return client, model, 'local'
+
+    async def complete(
+        self,
+        system: str,
+        user: str,
+        use_cloud: bool = True,
+        temperature: float = 0.1,
+        max_tokens: int = 2048,
+    ) -> LLMResponse:
+        """Single chat completion. Never raises — errors land in .error."""
+        client, model, mode = self._resolve(use_cloud)
+        try:
+            r = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {'role': 'system', 'content': system},
+                    {'role': 'user', 'content': user},
+                ],
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return LLMResponse(text=(r.choices[0].message.content or '').strip(),
+                               error='', mode=mode)
+        except Exception as exc:  # network, auth, model missing, …
+            return LLMResponse(text='', error=str(exc), mode=mode)
