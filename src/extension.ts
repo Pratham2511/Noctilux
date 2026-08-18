@@ -144,9 +144,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (provider && secretsService) {
         await promptForKey(secretsService, provider.value as 'gemini' | 'groq');
         // Fix B: clear intent cache after setting a new key
-        if (backendManager?.getClient()) {
+        const client = backendManager?.getClient();
+        if (client) {
           try {
-            await backendManager.getClient().clearIntentCache();
+            await client.clearIntentCache();
           } catch (err) {
             console.warn('[Verbis] Intent cache clear failed after setApiKey:', err);
           }
@@ -163,9 +164,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (confirmed === 'Remove' && secretsService) {
         await secretsService.deleteGeminiKey();
         // Fix B: clear intent cache after deleting the key
-        if (backendManager?.getClient()) {
+        const client = backendManager?.getClient();
+        if (client) {
           try {
-            await backendManager.getClient().clearIntentCache();
+            await client.clearIntentCache();
           } catch (err) {
             console.warn('[Verbis] Intent cache clear failed after clearApiKey:', err);
           }

@@ -123,7 +123,9 @@ export class BackendInstaller {
         progress.report({ message: 'Installing Verbis dependencies (~120MB, ~60s)...', increment: 50 });
         const useUv = fs.existsSync(this.uvExe);
         if (useUv) {
-            await this.runCommand(this.uvExe, ['pip', 'install', '-r', reqFile, '--quiet']);
+            // --python targets the venv interpreter explicitly; without it uv
+            // installs into whatever environment it detects (venv is not activated).
+            await this.runCommand(this.uvExe, ['pip', 'install', '--python', this.pythonExe, '-r', reqFile, '--quiet']);
         } else {
             await this.runCommand(this.pipExe, ['install', '-r', reqFile, '--quiet']);
         }
