@@ -236,7 +236,12 @@ export type WebviewMessageType =
   | 'SCHEMA_RESULT'
   | 'SCHEMA_EXECUTED'
   | 'SCHEMA_ERROR'
-  | 'CONNECTIONS_UPDATED';
+  | 'CONNECTIONS_UPDATED'
+  | 'GET_CONNECTIONS'
+  | 'CONNECTION_FORM_SAVE'
+  | 'STORE_DB_PASSWORD'
+  | 'TEST_CONNECTION'
+  | 'CONNECTION_TEST_RESULT';
 
 // ─── Backend Lifecycle ────────────────────────────────────────────────────
 export interface BackendStatus {

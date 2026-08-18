@@ -298,6 +298,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // `id` is the existing variable declared above as `const id = crypto.randomUUID()`.
       // Do NOT invent a new variable name — use `id` directly.
       VerbisPanel.currentPanel?.setActiveConnection(id);
+      await VerbisPanel.currentPanel?.pushConnections();
+      connectionsProvider.refresh();
       vscode.window.setStatusBarMessage(`Verbis: active connection → ${name}`, 3000);
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);
     }),

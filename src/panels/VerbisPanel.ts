@@ -9,7 +9,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { WebviewMessage, ChatMessage } from '../types';
+import { WebviewMessage, ChatMessage, DBConfig } from '../types';
 import { BackendClient } from '../services/BackendClient';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { SecretsService } from '../services/SecretsService';
@@ -61,6 +61,9 @@ export class VerbisPanel {
     this.panel.iconPath = vscode.Uri.file(path.join(context.extensionPath, 'media', 'icon.png'));
     this.panel.webview.html = this.getHtml();
 
+    // Seed the webview with the saved connections once it has loaded.
+    setTimeout(() => { void this.pushConnections(); }, 500);
+
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
       msg => this.onMessage(msg),
@@ -108,6 +111,56 @@ export class VerbisPanel {
       const url = msg.payload as string;
       if (typeof url === 'string') {
         vscode.env.openExternal(vscode.Uri.parse(url));
+      }
+      return;
+    }
+
+    // ─── Connection management (host-side; no backend needed) ─────────
+    if (msg.type === 'GET_CONNECTIONS') {
+      await this.pushConnections();
+      return;
+    }
+
+    if (msg.type === 'CONNECTION_FORM_SAVE') {
+      const form = msg.payload as {
+        name: string; dialect: DBConfig['dialect']; host: string;
+        port: number; database: string; user: string; ssl?: boolean;
+      };
+      if (!form.name || !form.database || !form.user) {
+        this.sendError('Connection name, database and user are required.');
+        return;
+      }
+      const cfg = await this.workspace.readConfig();
+      const id = crypto.randomUUID();
+      cfg.connections.push({
+        id,
+        name: form.name,
+        dialect: form.dialect,
+        host: form.host || 'localhost',
+        port: form.port,
+        database: form.database,
+        user: form.user,
+        ssl: form.ssl,
+      });
+      await this.workspace.writeConfig(cfg);
+      this.setActiveConnection(id);
+      await this.pushConnections();
+      this.panel.webview.postMessage({
+        type: 'SETTINGS_UPDATED',
+        requestId: msg.requestId,
+        payload: { saved: true, connectionId: id },
+      });
+      return;
+    }
+
+    if (msg.type === 'STORE_DB_PASSWORD') {
+      const { name, password } = msg.payload as { name: string; password: string };
+      // The webview sends the connection display name; resolve it to the
+      // most recently added connection with that name (the one just saved).
+      const cfg = await this.workspace.readConfig();
+      const match = [...cfg.connections].reverse().find(c => c.name === name);
+      if (match && password) {
+        await this.secrets.storeDbPassword(match.id, password);
       }
       return;
     }
@@ -312,6 +365,15 @@ export class VerbisPanel {
   // Public so extension.ts can broadcast to the webview
   public postMessage(message: unknown): void {
     this.panel.webview.postMessage(message);
+  }
+
+  /** Push the current connection list to the webview (chat DB selector). */
+  public async pushConnections(): Promise<void> {
+    const cfg = await this.workspace.readConfig();
+    this.panel.webview.postMessage({
+      type: 'CONNECTIONS_UPDATED',
+      payload: { connections: cfg.connections },
+    });
   }
 
   private sendError(message: string): void {

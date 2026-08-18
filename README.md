@@ -1,6 +1,6 @@
 # 🌙 Verbis — Intelligent Database Assistant (VS Code Extension)
 
-**Publisher:** pratham2511 · **Version:** 1.1.1 · **License:** MIT
+**Publisher:** pratham2511 · **Version:** 1.1.4 · **License:** MIT
 **Repository:** https://github.com/Pratham2511/Verbis-Intelligent-Database-Assistant
 
 > *Eliminate the barrier between human intent and database insight by transforming natural language into precise, optimized, safe, and explainable database operations — with team collaboration and enterprise-grade privacy — entirely within the developer's workspace.*
@@ -12,6 +12,23 @@ The default LLM provider is **Google Gemini 2.5 Flash** (free tier available —
 ---
 
 ## 🆕 What's New in v1.1.x
+
+### v1.1.4 — Chat input + connection flow fixes
+
+- **Fixed (chat input invisible):** The chat tab's message list and input row shared a scrolling flex container without `min-h-0`, so the flex item refused to shrink below its content height and the text box was pushed out of view. The chat tab now uses a dedicated non-scrolling flex column (`min-h-0` + `shrink-0` input row), and the textarea/select/button carry explicit VS Code theme colors (`--vscode-input-background` etc.) so they render even if utility classes are stripped.
+- **Fixed (connection form did nothing):** The Connections tab form posted `CONNECTION_FORM_SAVE` / `STORE_DB_PASSWORD` messages that no handler existed for — saving a connection from the webview silently failed. `VerbisPanel` now handles both: connections are appended to `.qmind/config.json` and passwords go to VS Code SecretStorage (OS keychain), exactly as documented.
+- **Improved:** The chat panel's database selector is now populated with your real saved connections (via new `GET_CONNECTIONS` / `CONNECTIONS_UPDATED` messages) instead of a hardcoded "Default DB" option, and stays in sync when connections are added.
+
+### v1.1.3 — Backend startup crashes + blank UI hotfix
+
+- **Fixed (backend failed to start):** `services/llm_service.py` was missing the `LLMRouter` class and `LLMResponse` dataclass that 6 modules import (`api/dependencies.py`, `sql_generator`, `nosql_generator`, `narrative_service`, `plan_explainer`, `federated_service`) — the backend died at import time with `ImportError: cannot import name 'LLMRouter'`.
+- **Fixed (backend failed to start, round 2):** `models/requests.py` was missing 8 model classes imported by `schema_impact`, `robustness_service` and `glossary_service` (`BreakageEntry`, `ImpactResponse`, `RobustnessQueryItem`, `PerturbationResult`, `RobustnessReport`, `GlossaryTerm`, `JoinPath`, `GlossaryStore`).
+- **Fixed (blank chat panel):** `VerbisPanel` loaded `webview/dist/assets/main.js` + `main.css`, but Vite emits `index.js` + `index.css` — the script 404'd and React never mounted.
+- **Fixed (empty sidebar):** `package.json` declares `verbis.connections` / `verbis.schema` / `verbis.history` views but no tree providers were registered. Added `src/views/SidebarProviders.ts` (Connections, Schema, Recent Queries) and registered them in `extension.ts`.
+
+### v1.1.2 — Marketplace republish
+
+- Republished the v1.1.1 packaging fix to the VS Code Marketplace (no code changes beyond version bump).
 
 ### v1.1.1 — Backend install hotfix
 
@@ -89,7 +106,7 @@ Multi-database users can now switch connections via the `Verbis: Select Database
 verbis/
 ├── package.json                  # VS Code extension manifest (marketplace-ready)
 ├── tsconfig.json
-├── .vscodeignore                 # Excludes src/, webview/src/, python_backend/
+├── .vscodeignore                 # Ships python_backend/ source; excludes caches/venvs
 ├── .gitignore
 ├── CHANGELOG.md                  # [1.0.0] — 2026-08-16
 ├── LICENSE                       # MIT
@@ -111,6 +128,8 @@ verbis/
 │   │   ├── SecretsService.ts     # Gemini / Groq / DB-password storage (OS keychain)
 │   │   ├── WorkspaceService.ts   # .qmind/ file I/O
 │   │   └── BackendClient.ts      # HTTP client (forwards api_key + provider to backend)
+│   ├── views/
+│   │   └── SidebarProviders.ts   # Connections / Schema / Recent Queries tree views
 │   └── types/index.ts            # Shared TypeScript interfaces + WebviewMessageType union
 │
 ├── webview/                      # React app (Vite-bundled, runs in webview sandbox)

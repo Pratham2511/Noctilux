@@ -1,5 +1,82 @@
 # Changelog
 
+## [1.1.4] — 2026-08-19
+
+### Fixed — Chat input invisible + connection form not saving
+
+**Bug 1 (chat input):** The chat tab's message list and input row shared a
+scrolling flex container without `min-h-0`, so the flex item refused to
+shrink below its content height and the query text box was pushed out of
+view — the chat panel opened with no visible place to type.
+
+**Fix:** The chat tab now uses a dedicated non-scrolling flex column
+(`min-h-0` on the messages area, `shrink-0` on the input row), and the
+textarea / select / button carry explicit VS Code theme colors
+(`--vscode-input-background`, `--vscode-button-background`, etc.) so they
+render correctly regardless of Tailwind utility generation.
+
+**Bug 2 (connection form):** The Connections tab form posted
+`CONNECTION_FORM_SAVE` / `STORE_DB_PASSWORD` webview messages that had no
+handler in `VerbisPanel` — saving a connection from the webview silently
+did nothing.
+
+**Fix:** `VerbisPanel` now handles both messages: connections are appended
+to `.qmind/config.json` and passwords are stored in VS Code SecretStorage
+(OS keychain). The new connection is auto-set as active.
+
+### Added — Live connection list in chat
+
+- New `GET_CONNECTIONS` / `CONNECTIONS_UPDATED` webview messages.
+- The chat panel's database selector is now populated with real saved
+  connections (instead of a hardcoded "Default DB") and stays in sync when
+  connections are added via the command palette or the Connections tab.
+
+---
+
+## [1.1.3] — 2026-08-18
+
+### Fixed — Backend startup crashes + blank chat UI + empty sidebar
+
+**Bug 1 (backend failed to start):** `services/llm_service.py` was missing
+the `LLMRouter` class and `LLMResponse` dataclass that 6 modules import
+(`api/dependencies.py`, `sql_generator`, `nosql_generator`,
+`narrative_service`, `plan_explainer`, `federated_service`) — the backend
+died at import time with `ImportError: cannot import name 'LLMRouter'`.
+
+**Bug 2 (backend failed to start, round 2):** `models/requests.py` was
+missing 8 model classes imported by `schema_impact`, `robustness_service`
+and `glossary_service` (`BreakageEntry`, `ImpactResponse`,
+`RobustnessQueryItem`, `PerturbationResult`, `RobustnessReport`,
+`GlossaryTerm`, `JoinPath`, `GlossaryStore`).
+
+**Bug 3 (blank chat panel):** `VerbisPanel` loaded
+`webview/dist/assets/main.js` + `main.css`, but Vite emits `index.js` +
+`index.css` — the script 404'd and React never mounted.
+
+**Bug 4 (empty sidebar):** `package.json` declares `verbis.connections` /
+`verbis.schema` / `verbis.history` views but no tree providers were
+registered.
+
+**Fix:**
+- Added `LLMRouter` + `LLMResponse` to `llm_service.py` (never raises;
+  errors land in `LLMResponse.error`; falls back Gemini → Groq → Ollama).
+- Added the 8 missing Pydantic models to `models/requests.py`.
+- `VerbisPanel.getHtml()` now loads the correct Vite asset filenames.
+- New `src/views/SidebarProviders.ts` with `ConnectionsProvider`,
+  `SchemaTreeProvider`, `HistoryProvider`, registered in `extension.ts`
+  and refreshed when the backend becomes ready.
+
+---
+
+## [1.1.2] — 2026-08-18
+
+### Chore
+
+- Republished the v1.1.1 packaging fix to the VS Code Marketplace
+  (no code changes beyond version bump).
+
+---
+
 ## [1.1.1] — 2026-08-17
 
 ### Fixed — Backend install failure on packaged extension

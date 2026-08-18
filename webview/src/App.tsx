@@ -121,8 +121,9 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Tab content */}
-      <div className="flex-1 overflow-auto">
+      {/* Tab content — chat needs a non-scrolling flex container so its
+          input row stays pinned to the bottom; other tabs scroll. */}
+      <div className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden' : 'overflow-auto'}`}>
         {activeTab === 'chat' && (
           <ChatPanel messages={messages} onSend={handleSend} />
         )}
