@@ -25,7 +25,7 @@ class SchemaRefineRequest(BaseModel):
     api_key: str = ""
 
 
-@router.post("/api/schema/create")
+@router.post("/schema/create")
 async def create_schema(req: SchemaCreateRequest):
     schema = await generate_schema_from_nl(
         description=req.description,
@@ -42,7 +42,7 @@ async def create_schema(req: SchemaCreateRequest):
     }
 
 
-@router.post("/api/schema/refine")
+@router.post("/schema/refine")
 async def refine_schema_endpoint(req: SchemaRefineRequest):
     updated = await refine_schema(
         existing_schema=req.existing_schema,

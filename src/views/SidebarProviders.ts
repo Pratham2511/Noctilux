@@ -15,6 +15,7 @@
 import * as vscode from 'vscode';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { BackendClient } from '../services/BackendClient';
+import { BackendStatus } from '../types';
 
 // ─── Connections ───────────────────────────────────────────────────────────
 
@@ -57,7 +58,10 @@ export class SchemaTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
   private readonly onChange = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.onChange.event;
 
-  constructor(private readonly getClient: () => BackendClient | null) {}
+  constructor(
+    private readonly getClient: () => BackendClient | null,
+    private readonly getStatus: () => BackendStatus,
+  ) {}
 
   refresh(): void { this.onChange.fire(); }
 
@@ -66,8 +70,20 @@ export class SchemaTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
   async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
     const client = this.getClient();
     if (!client) {
-      const item = new vscode.TreeItem('Backend starting…');
-      item.iconPath = new vscode.ThemeIcon('loading~spin');
+      const state = this.getStatus().state;
+      // Only show the spinner while the backend is genuinely starting up.
+      // When stopped/crashed, a perpetual "Backend starting…" is misleading —
+      // show an actionable restart item instead.
+      if (state === 'starting') {
+        const item = new vscode.TreeItem('Backend starting…');
+        item.iconPath = new vscode.ThemeIcon('loading~spin');
+        return [item];
+      }
+      const item = new vscode.TreeItem(
+        state === 'crashed' ? 'Backend crashed — restart' : 'Backend not running — start'
+      );
+      item.command = { command: 'verbis.restartBackend', title: 'Restart Backend' };
+      item.iconPath = new vscode.ThemeIcon(state === 'crashed' ? 'error' : 'debug-start');
       return [item];
     }
     if (element) return [];  // columns not expanded in the tree (kept simple)
@@ -76,8 +92,8 @@ export class SchemaTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
       const schema = await client.getSchema('default');
       const tables = schema?.tables ?? [];
       if (tables.length === 0) {
-        const item = new vscode.TreeItem('No schema loaded — open chat and connect');
-        item.command = { command: 'verbis.openChat', title: 'Open Chat' };
+        const item = new vscode.TreeItem('No schema loaded — open the assistant and connect');
+        item.command = { command: 'verbis.openAssistant', title: 'Open Assistant' };
         return [item];
       }
       return tables.slice(0, 200).map(t => {
@@ -110,8 +126,8 @@ export class HistoryProvider implements vscode.TreeDataProvider<vscode.TreeItem>
   async getChildren(): Promise<vscode.TreeItem[]> {
     const history = await this.workspace.readHistory();
     if (history.length === 0) {
-      const item = new vscode.TreeItem('No queries yet — open the chat to start');
-      item.command = { command: 'verbis.openChat', title: 'Open Chat' };
+      const item = new vscode.TreeItem('No queries yet — open the assistant to start');
+      item.command = { command: 'verbis.openAssistant', title: 'Open Assistant' };
       item.iconPath = new vscode.ThemeIcon('comment-discussion');
       return [item];
     }

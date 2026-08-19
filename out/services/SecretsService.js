@@ -39,7 +39,6 @@ class SecretsService {
     context;
     static GEMINI_KEY = 'verbis.geminiApiKey';
     static GROQ_KEY = 'verbis.groqApiKey';
-    static KIMI_KEY = 'verbis.kimiApiKey';
     static DB_PREFIX = 'verbis.db.password.';
     constructor(context) {
         this.context = context;
@@ -59,14 +58,8 @@ class SecretsService {
     async getGroqKey() {
         return this.context.secrets.get(SecretsService.GROQ_KEY);
     }
-    async storeKimiKey(key) {
-        await this.context.secrets.store(SecretsService.KIMI_KEY, key);
-    }
-    async getKimiKey() {
-        return this.context.secrets.get(SecretsService.KIMI_KEY);
-    }
-    async deleteKimiKey() {
-        await this.context.secrets.delete(SecretsService.KIMI_KEY);
+    async deleteGroqKey() {
+        await this.context.secrets.delete(SecretsService.GROQ_KEY);
     }
     async storeDbPassword(dbId, pw) {
         await this.context.secrets.store(`${SecretsService.DB_PREFIX}${dbId}`, pw);
@@ -83,8 +76,6 @@ class SecretsService {
             .get('llm.provider', 'gemini');
         if (provider === 'groq')
             return this.getGroqKey();
-        if (provider === 'kimi')
-            return this.getKimiKey();
         return this.getGeminiKey();
     }
 }

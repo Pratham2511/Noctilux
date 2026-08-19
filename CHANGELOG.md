@@ -1,5 +1,83 @@
 # Changelog
 
+## [1.2.1] — 2026-08-19
+
+Corrective patch release. v1.2.0 shipped several regressions; this release
+fixes them and tightens security, scope enforcement, and UX.
+
+### Fixed — Terminal could not reach the backend (HTTP 404 on every question)
+
+- **Root cause:** FastAPI double-prefix. `generate.py` and `schema_create.py`
+  declared absolute route paths (`/api/generate`, `/api/schema/create`) while
+  `main.py` also mounted those routers with `prefix='/api'`, so the routes
+  were registered at `/api/api/generate` and `/api/api/schema/create`. The
+  client POSTs to `/api/generate` → `404 {"detail":"Not Found"}`.
+- **Fix:** all route paths are now relative (`/generate`, `/schema/create`,
+  …) and `schema_create` is mounted with `prefix='/api'` like every other
+  router. Verified live: `/api/health`→200, `/api/generate`→route resolves,
+  `/api/execute`→422 (validation), `/api/intent/cache/clear`→200,
+  `/api/schema/create`→route resolves.
+
+### Fixed — Raw JSON / cryptic errors shown to the user
+
+- `BackendClient` now extracts FastAPI's `detail` field (string or validation
+  array) instead of dumping the raw response body into the terminal.
+- A `404` now produces an actionable message ("extension and backend may be
+  out of sync — try Verbis: Restart Python Backend") instead of
+  `HTTP 404: {"detail":"Not Found"}`.
+- The backend now maps LLM client errors to clean HTTP errors: a missing or
+  invalid API key returns `401` with "No valid API key for the selected
+  provider. Run 'Verbis: Set API Key'…" instead of a bare
+  `500 Internal Server Error`; rate limits return `429`.
+
+### Added — Explicit API-key source choice (no silent consumption)
+
+- The first time you ask a question in a session, if a configured key exists
+  you now choose explicitly: **Use existing configured key**, **Use a
+  different key for this session only**, or **Manage keys…**. Cancelling
+  aborts the question — a stored key is never consumed silently.
+- A session-specific key is held in memory only, never written to
+  SecretStorage, and is discarded when the terminal closes or on `/reset`.
+- `/status` now shows which credential source is active.
+
+### Added — Deterministic SQL-only scope gate
+
+- A deterministic pre-filter now runs before the LLM intent classifier.
+  Obvious off-topic requests (jokes, poems, weather, recipes, trivia) are
+  rejected instantly with a polite message and **zero API cost**; obvious
+  database requests skip the classifier entirely. Ambiguous input still falls
+  through to the existing few-shot LLM classifier, which fails open.
+- Database signals win over off-topic keywords, so polysemous queries like
+  "weather data from the sensors table" are correctly treated as in-scope.
+
+### Fixed — Sidebar
+
+- Removed stale `verbis.openChat` command references (the command no longer
+  exists) — replaced with `verbis.openAssistant`. Clicking an empty-state
+  item no longer throws "command not found".
+- The Schema view no longer shows a perpetual "Backend starting…" spinner
+  when the backend is stopped or crashed. It now shows an actionable
+  "Backend not running — start" / "Backend crashed — restart" item that runs
+  `Verbis: Restart Python Backend`; the spinner only appears while the
+  backend is genuinely starting.
+- Empty-state text updated from "open the chat" to "open the assistant".
+
+### Fixed — Blank Activity Bar icon
+
+- `media/sidebar.svg` used a solid teal fill with white text, which VS Code's
+  Activity Bar masks to an invisible square. Rewritten as a monochrome
+  `currentColor` glyph (database cylinder + query spark) so it themes
+  correctly.
+
+### Removed — Accidental Kimi (Moonshot) runtime integration
+
+- v1.2.0 added Kimi as a runtime LLM provider by mistake. All runtime
+  integration removed: the `kimi` provider branch in the backend LLM service,
+  the `kimi_model` config field, the `kimi` provider enum and `kimiModel`
+  setting in `package.json`, and Kimi key handling in `SecretsService` /
+  `extension.ts`. Genuine providers (`gemini`, `groq`, `local`) are
+  unchanged.
+
 ## [1.2.0] — 2026-08-19
 
 ### Changed — Terminal assistant replaces the webview chat (major UX change)

@@ -7,11 +7,23 @@
 
 Verbis is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
-The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq**, **Kimi (Moonshot AI — Kimi K3)**, and **Ollama (local)** are also supported, and API keys from **any provider — Gemini, Claude, Kimi, OpenAI, and others — are accepted** without format restrictions. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
+The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
 
 ---
 
-## 🆕 What's New in v1.2.0
+## 🆕 What's New in v1.2.1
+
+### v1.2.1 — Corrective patch (backend connectivity, security, scope, UX)
+
+v1.2.0 shipped several regressions; this patch fixes them.
+
+- **Fixed — terminal couldn't reach the backend (HTTP 404 on every question):** a FastAPI double-prefix registered generation routes at `/api/api/generate` instead of `/api/generate`. All route paths are now relative and every router mounts under `/api`.
+- **Fixed — raw JSON / cryptic errors:** the client now surfaces FastAPI's `detail` field; a `404` suggests restarting the backend, and a missing/invalid API key returns a clean `401` ("Run 'Verbis: Set API Key'…") instead of a bare `500`.
+- **Added — explicit API-key source choice:** the first question of a session lets you choose **existing configured key**, a **session-only key** (memory-only, never saved), or **Manage keys…**. Cancelling aborts — a stored key is never consumed silently.
+- **Added — deterministic SQL-only scope gate:** obvious off-topic requests (jokes, poems, weather) are rejected instantly with zero API cost; obvious database questions skip the classifier. Ambiguous input still falls through to the LLM classifier, which fails open.
+- **Fixed — sidebar:** removed stale `verbis.openChat` references (→ `verbis.openAssistant`); the Schema view shows an actionable "Backend not running — start" item instead of a perpetual spinner when the backend is stopped.
+- **Fixed — blank Activity Bar icon:** `media/sidebar.svg` rewritten as a monochrome `currentColor` glyph.
+- **Removed — accidental Kimi (Moonshot) runtime integration** added in v1.2.0 by mistake. Genuine providers (`gemini`, `groq`, `local`) are unchanged.
 
 ### v1.2.0 — Terminal assistant (Claude Code–style) replaces the webview chat
 
@@ -23,7 +35,6 @@ The conversational interface is now a **REPL hosted in VS Code's integrated term
 - **One request at a time:** while the agent is working, further Enter presses are ignored with a notice; Ctrl+C cancels.
 - **Conversation context preserved** per terminal via a stable `sessionId` forwarded to the backend on every turn; `/reset` starts a fresh session.
 - **Generation vs. execution stay distinct:** the agent generates SQL; `/run` explicitly executes the last generated statement through the existing execution path (row limits, read-only guard, history logging).
-- **New provider — Kimi (Moonshot AI):** select `kimi` to route through Moonshot's OpenAI-compatible endpoint, defaulting to the **Kimi K3** model (`verbis.llm.kimiModel`). Key stored in SecretStorage via `Verbis: Set API Key`.
 - **Removed from the main flow:** the `verbis.chatView` sidebar webview, the `Verbis: Open Chat` / `Verbis: Open Chat in Editor Panel` commands, and the webview chat tab. Backend, connections, schema/history trees, settings, and API-key commands are unchanged.
 
 **Architecture:** the terminal is a thin I/O layer. All agent intelligence lives in a new UI-independent `AssistantSession` (`src/assistant/AssistantSession.ts`) that delegates to the existing `BackendClient` pipeline — no SQL logic is duplicated in the UI.
@@ -150,8 +161,12 @@ verbis/
 │   │   ├── SecretsService.ts     # Gemini / Groq / DB-password storage (OS keychain)
 │   │   ├── WorkspaceService.ts   # .qmind/ file I/O
 │   │   └── BackendClient.ts      # HTTP client (forwards api_key + provider to backend)
+│   ├── assistant/
+│   │   └── AssistantSession.ts   # UI-independent conversational controller (session, busy, credentials)
+│   ├── terminal/
+│   │   ├── VerbisTerminal.ts     # Pseudoterminal REPL (input, slash commands, rendering)
+│   │   └── TerminalManager.ts    # Terminal lifecycle (open/focus/cleanup)
 │   ├── views/
-│   │   ├── ChatViewProvider.ts   # Sidebar chat webview (Copilot-Chat-style)
 │   │   └── SidebarProviders.ts   # Connections / Schema / Recent Queries tree views
 │   └── types/index.ts            # Shared TypeScript interfaces + WebviewMessageType union
 │
@@ -227,7 +242,7 @@ verbis/
 
 ## 🔑 Setting Your API Key
 
-Verbis needs an LLM provider API key to generate SQL queries. The default provider is **Google Gemini** (free tier), and keys from **any provider — Gemini, Claude, Kimi, OpenAI, Groq, and others — are accepted**; no provider-specific key format is enforced. There are three ways to enter your key:
+Verbis needs an LLM provider API key to generate SQL queries. The default provider is **Google Gemini** (free tier); **Groq** is also supported. There are three ways to enter your key:
 
 ### Option A — First-run welcome prompt
 
@@ -245,7 +260,7 @@ Any key format is accepted — paste the full key exactly as your provider shows
 
 ### Option C — From the Webview Settings Panel
 
-Open the **Connections** tab in the Verbis webview. The **API Keys** card at the top lets you paste any provider's key (Gemini, Claude, Kimi, OpenAI, Groq, …) into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
+Open the **Connections** tab in the Verbis webview. The **API Keys** card at the top lets you paste your Gemini or Groq key into a password-masked input. The "Get free key ↗" links jump straight to the relevant provider's API-key page.
 
 ### Removing the key
 
@@ -431,7 +446,7 @@ Then set `verbis.llm.provider` to `local` in VS Code settings. No API key is req
 | Command | Purpose |
 |---------|---------|
 | `Verbis: Open Assistant` | Open the conversational assistant in the integrated terminal |
-| `Verbis: Set API Key` | Set or replace your Gemini / Groq / Kimi API key |
+| `Verbis: Set API Key` | Set or replace your Gemini / Groq API key |
 | `Verbis: Remove API Key` | Remove the stored key from the OS keychain |
 | `Verbis: Show Schema & ER Diagram` | Open the schema explorer panel |
 | `Verbis: Open Query Tree` | Open the ReactFlow DAG of query history |

@@ -126,11 +126,11 @@ async function activate(context) {
         vscode.window.setStatusBarMessage(`Verbis backend: ${status.state}${status.port ? ` (port ${status.port})` : ''}`, 3000);
     });
     // ─── 2b. Register sidebar view providers ─────────────────────────────
-    // package.json declares verbis.chatView / verbis.connections / verbis.schema /
-    // verbis.history under the Verbis activity bar container. Without these
-    // registrations the sidebar renders permanently empty sections.
+    // package.json declares verbis.connections / verbis.schema / verbis.history
+    // under the Verbis activity bar container. Without these registrations the
+    // sidebar renders permanently empty sections.
     const connectionsProvider = new SidebarProviders_1.ConnectionsProvider(workspaceService);
-    const schemaTreeProvider = new SidebarProviders_1.SchemaTreeProvider(() => backendManager?.getClient() ?? null);
+    const schemaTreeProvider = new SidebarProviders_1.SchemaTreeProvider(() => backendManager?.getClient() ?? null, () => backendManager?.getStatus() ?? { state: 'stopped' });
     const historyProvider = new SidebarProviders_1.HistoryProvider(workspaceService);
     backendManager.on('status', (status) => {
         VerbisPanel_1.VerbisPanel.currentPanel?.postMessage({
@@ -156,8 +156,7 @@ async function activate(context) {
     }), vscode.commands.registerCommand('verbis.setApiKey', async () => {
         const provider = await vscode.window.showQuickPick([
             { label: 'Google Gemini', description: 'Recommended — free tier', value: 'gemini' },
-            { label: 'Groq', description: 'Alternative — free tier', value: 'groq' },
-            { label: 'Kimi (Moonshot AI)', description: 'Kimi K3', value: 'kimi' }
+            { label: 'Groq', description: 'Alternative — free tier', value: 'groq' }
         ], { title: 'Verbis: Which provider?' });
         if (provider && secretsService) {
             await promptForKey(secretsService, provider.value);
@@ -176,7 +175,7 @@ async function activate(context) {
         const confirmed = await vscode.window.showWarningMessage('Remove your stored Verbis API key?', { modal: true }, 'Remove');
         if (confirmed === 'Remove' && secretsService) {
             await secretsService.deleteGeminiKey();
-            await secretsService.deleteKimiKey();
+            await secretsService.deleteGroqKey();
             // Fix B: clear intent cache after deleting the key
             const client = backendManager?.getClient();
             if (client) {
@@ -373,12 +372,6 @@ async function promptForKey(secrets, provider) {
             prompt: 'Free key from console.groq.com → API Keys',
             placeholder: 'Paste your API key',
             validate: looksLikeApiKey
-        },
-        kimi: {
-            title: 'Verbis — Kimi (Moonshot AI) API Key',
-            prompt: 'Key from platform.moonshot.ai → API Keys',
-            placeholder: 'Paste your API key',
-            validate: looksLikeApiKey
         }
     }[provider];
     const key = await vscode.window.showInputBox({
@@ -394,9 +387,6 @@ async function promptForKey(secrets, provider) {
     }
     if (provider === 'gemini') {
         await secrets.storeGeminiKey(key);
-    }
-    else if (provider === 'kimi') {
-        await secrets.storeKimiKey(key);
     }
     else {
         await secrets.storeGroqKey(key);

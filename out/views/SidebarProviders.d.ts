@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { BackendClient } from '../services/BackendClient';
+import { BackendStatus } from '../types';
 export declare class ConnectionsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     private readonly workspace;
     private readonly onChange;
@@ -12,9 +13,10 @@ export declare class ConnectionsProvider implements vscode.TreeDataProvider<vsco
 }
 export declare class SchemaTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     private readonly getClient;
+    private readonly getStatus;
     private readonly onChange;
     readonly onDidChangeTreeData: vscode.Event<void>;
-    constructor(getClient: () => BackendClient | null);
+    constructor(getClient: () => BackendClient | null, getStatus: () => BackendStatus);
     refresh(): void;
     getTreeItem(item: vscode.TreeItem): vscode.TreeItem;
     getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]>;

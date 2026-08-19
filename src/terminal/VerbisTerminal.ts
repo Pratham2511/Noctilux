@@ -22,7 +22,7 @@ import { AssistantSession, AssistantReply, ExecuteOutcome } from '../assistant/A
 import { BackendStatus } from '../types';
 
 // ─── ANSI helpers (conservative, widely-supported SGR codes only) ─────────
-const ESC = '';
+const ESC = '\u001b';
 const ANSI = {
   reset:   `${ESC}[0m`,
   bold:    `${ESC}[1m`,
@@ -65,6 +65,8 @@ export class VerbisTerminal implements vscode.Pseudoterminal {
   close(): void {
     this.disposed = true;
     this.session.cancel();
+    // Discard any session-only API key when the terminal closes.
+    this.session.discardSessionKey();
   }
 
   // ─── Input handling (keystroke-level, like a real CLI) ─────────────────
@@ -262,17 +264,13 @@ export class VerbisTerminal implements vscode.Pseudoterminal {
   private printBanner(): void {
     const status = this.getStatus();
     const statusText = status.state === 'ready'
-      ? c(ANSI.fgGreen, `● backend ready (port ${status.port ?? '?'})`)
+      ? c(ANSI.fgGreen, '● backend ready')
       : c(ANSI.fgYellow, `● backend ${status.state}`);
 
-    this.writeln(c(ANSI.fgCyan + ANSI.bold, '┌─ Verbis Assistant ─────────────────────────────'));
-    this.writeln(c(ANSI.fgCyan, '│'));
-    this.writeln(`${c(ANSI.fgCyan, '│')}  Ask questions in plain English. Verbis generates`);
-    this.writeln(`${c(ANSI.fgCyan, '│')}  SQL through the existing agent pipeline.`);
-    this.writeln(c(ANSI.fgCyan, '│'));
-    this.writeln(`${c(ANSI.fgCyan, '│')}  ${statusText}   provider: ${c(ANSI.bold, this.session.providerLabel)}`);
-    this.writeln(`${c(ANSI.fgCyan, '│')}  ${c(ANSI.fgGray, '/help for commands · Ctrl+C to cancel · /exit to close')}`);
-    this.writeln(c(ANSI.fgCyan, '└─────────────────────────────────────────────────'));
+    this.writeln(c(ANSI.fgCyan + ANSI.bold, 'Verbis Assistant'));
+    this.writeln(c(ANSI.fgGray, 'Ask questions in plain English — Verbis generates SQL.'));
+    this.writeln(`${statusText}  ${c(ANSI.fgGray, '·')}  provider: ${c(ANSI.bold, this.session.providerLabel)}`);
+    this.writeln(c(ANSI.fgGray, '/help for commands · Ctrl+C to cancel · /exit to close'));
     this.writeln('');
   }
 
@@ -299,11 +297,12 @@ export class VerbisTerminal implements vscode.Pseudoterminal {
   private printStatus(): void {
     const s = this.getStatus();
     this.writeln(c(ANSI.bold, 'Status:'));
-    this.writeln(`  backend   ${s.state}${s.port ? ` (port ${s.port})` : ''}`);
-    this.writeln(`  provider  ${this.session.providerLabel}`);
-    this.writeln(`  session   ${this.session.id.slice(0, 8)}…`);
-    this.writeln(`  turns     ${this.session.transcript.length}`);
-    this.writeln(`  busy      ${this.session.isBusy ? 'yes' : 'no'}`);
+    this.writeln(`  backend     ${s.state}${s.port ? ` (port ${s.port})` : ''}`);
+    this.writeln(`  provider    ${this.session.providerLabel}`);
+    this.writeln(`  credential  ${this.session.credentialSourceLabel}`);
+    this.writeln(`  session     ${this.session.id.slice(0, 8)}…`);
+    this.writeln(`  turns       ${this.session.transcript.length}`);
+    this.writeln(`  busy        ${this.session.isBusy ? 'yes' : 'no'}`);
   }
 
   private printHistory(): void {

@@ -31,6 +31,7 @@ Research basis:
   intent scoping method for NL2SQL systems
 """
 
+import re
 from typing import Optional, Tuple
 from openai import AsyncOpenAI
 from cachetools import LRUCache  # Added EXPLICITLY to requirements.txt — NOT transitive
@@ -38,6 +39,68 @@ from cachetools import LRUCache  # Added EXPLICITLY to requirements.txt — NOT 
 
 # ── LRU cache: 200 entries (active users type 50+ unique queries/session) ──
 _intent_cache: LRUCache = LRUCache(maxsize=200)
+
+
+# ─── Deterministic pre-filter (P3) ───────────────────────────────────────
+# Runs BEFORE the LLM classifier. Two goals:
+#   1. Catch obvious off-topic requests instantly (zero API cost, deterministic).
+#   2. Fast-path obvious database requests (skip the LLM call entirely).
+# Anything ambiguous falls through to the few-shot LLM classifier below.
+# This layer NEVER blocks a borderline query — it only short-circuits when
+# the signal is strong, and otherwise defers to the LLM (which fails open).
+
+# Strong database signals — presence of any of these means DATABASE.
+_DB_SIGNALS = re.compile(
+    r"\b("
+    r"select|insert|update|delete|from|where|join|group\s+by|order\s+by|limit|"
+    r"table|tables|column|columns|schema|database|index|indexes|"
+    r"query|sql|primary\s+key|foreign\s+key|constraint|view|"
+    r"count|sum|avg|min|max|distinct|"
+    r"create\s+table|alter\s+table|drop\s+table|"
+    r"show\s+me|list|find|how\s+many|top\s+\d+|"
+    r"customers|orders|users|products|employees|transactions|revenue|sales"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Strong off-topic signals — phrases that are clearly not about data.
+# Kept narrow and specific to avoid false positives on polysemous words
+# (e.g. "weather data from the sensors table" must stay DATABASE — it
+# contains a _DB_SIGNAL, which we check FIRST).
+_OFFTOPIC_SIGNALS = re.compile(
+    r"\b("
+    r"tell\s+me\s+a\s+joke|joke|"
+    r"write\s+(me\s+)?a\s+(poem|song|story|cover\s+letter|essay)|poem|"
+    r"recipe|how\s+do\s+i\s+cook|"
+    r"capital\s+of|president|prime\s+minister|"
+    r"weather\s+(today|tomorrow|forecast)|"
+    r"who\s+won|stock\s+price|"
+    r"translate\s+this|"
+    r"how\s+do\s+i\s+lose\s+weight|symptoms\s+of|"
+    r"photosynthesis|"
+    r"recommend\s+a\s+(good\s+)?(movie|book|show)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _deterministic_intent(user_message: str) -> Optional[str]:
+    """
+    Fast deterministic classification. Returns:
+      "DATABASE"  — strong DB signal present (skip the LLM call)
+      "OFFTOPIC"  — strong off-topic signal AND no DB signal
+      None        — ambiguous; defer to the LLM classifier
+    """
+    msg = user_message.strip()
+    if not msg:
+        return None
+    # DB signal wins outright — even if an off-topic word appears
+    # ("weather data from the sensors table" is a valid query).
+    if _DB_SIGNALS.search(msg):
+        return "DATABASE"
+    if _OFFTOPIC_SIGNALS.search(msg):
+        return "OFFTOPIC"
+    return None
 
 
 # ── Few-shot prompt with 15+ explicit examples ────────────────────────
@@ -154,6 +217,18 @@ async def classify_intent(
     """
     cache_key = (user_message.strip().lower(), provider)
     if cache_key in _intent_cache:
+        return _intent_cache[cache_key]
+
+    # ── Deterministic pre-filter (P3): zero-cost short-circuit ──
+    # Strong DB signal → skip the LLM call; strong off-topic (and no DB
+    # signal) → block immediately. Ambiguous → fall through to the LLM.
+    deterministic = _deterministic_intent(user_message)
+    if deterministic == "DATABASE":
+        _intent_cache[cache_key] = ("DATABASE", None)
+        return _intent_cache[cache_key]
+    if deterministic == "OFFTOPIC":
+        import random
+        _intent_cache[cache_key] = ("OFFTOPIC", random.choice(OFFTOPIC_RESPONSES))
         return _intent_cache[cache_key]
 
     try:

@@ -99,4 +99,11 @@ export declare class BackendClient {
     }>;
     shutdown(): Promise<void>;
     private requestJson;
+    /**
+     * Pull a clean message out of an error response body. FastAPI returns
+     * {"detail":"..."} for HTTP errors and {"detail":[...]} for validation
+     * errors; anything else is returned trimmed. Never returns raw JSON braces
+     * for the common FastAPI shapes.
+     */
+    private static extractDetail;
 }

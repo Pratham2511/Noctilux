@@ -37,8 +37,6 @@ class Settings(BaseSettings):
     local_endpoint: str = 'http://127.0.0.1:11434/api/generate'  # Ollama default
     local_model: str = 'mistral:7b'
     llm_timeout_seconds: int = 30
-    # Moonshot AI (Kimi). Model id configurable; default tracks Kimi K3.
-    kimi_model: str = 'kimi-k3'
 
     # ─── Privacy ──────────────────────────────────────────────────────────
     privacy_shield_enabled: bool = True

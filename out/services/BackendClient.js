@@ -131,16 +131,24 @@ class BackendClient {
             });
             if (!res.ok) {
                 const text = await res.text();
+                // Extract a clean, human-readable message from the response body.
+                // FastAPI errors look like {"detail":"..."} — surface the detail, not
+                // the raw JSON blob, so users never see `{"detail":"Not Found"}`.
+                const detail = BackendClient.extractDetail(text);
                 if (res.status === 401) {
                     throw new BackendClientError('Invalid API key', 'auth', 401);
                 }
                 if (res.status === 429) {
                     throw new BackendClientError('Rate limited by LLM provider', 'rate_limit', 429);
                 }
-                if (res.status >= 500) {
-                    throw new BackendClientError(`Backend error: ${text}`, 'server', res.status);
+                if (res.status === 404) {
+                    throw new BackendClientError(`The backend does not recognize this request (${method} ${path}). ` +
+                        'The extension and backend may be out of sync — try "Verbis: Restart Python Backend".', 'unknown', 404);
                 }
-                throw new BackendClientError(`HTTP ${res.status}: ${text}`, 'unknown', res.status);
+                if (res.status >= 500) {
+                    throw new BackendClientError(`Backend error: ${detail}`, 'server', res.status);
+                }
+                throw new BackendClientError(`Request failed (${res.status}): ${detail}`, 'unknown', res.status);
             }
             return (await res.json());
         }
@@ -155,6 +163,38 @@ class BackendClient {
         finally {
             clearTimeout(timer);
         }
+    }
+    /**
+     * Pull a clean message out of an error response body. FastAPI returns
+     * {"detail":"..."} for HTTP errors and {"detail":[...]} for validation
+     * errors; anything else is returned trimmed. Never returns raw JSON braces
+     * for the common FastAPI shapes.
+     */
+    static extractDetail(text) {
+        const trimmed = (text ?? '').trim();
+        if (!trimmed) {
+            return 'no details provided';
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && typeof parsed === 'object' && 'detail' in parsed) {
+                const d = parsed.detail;
+                if (typeof d === 'string') {
+                    return d;
+                }
+                if (Array.isArray(d)) {
+                    // FastAPI validation errors: [{loc, msg, type}, ...]
+                    return d
+                        .map((e) => e?.msg ?? JSON.stringify(e))
+                        .join('; ');
+                }
+                return JSON.stringify(d);
+            }
+        }
+        catch {
+            // Not JSON — fall through to the trimmed text.
+        }
+        return trimmed.length > 300 ? trimmed.slice(0, 297) + '…' : trimmed;
     }
 }
 exports.BackendClient = BackendClient;

@@ -56,11 +56,25 @@ interface HistoryEntry {
  * stable `sessionId`; this class mirrors a lightweight local transcript for
  * /history and display purposes only.
  */
+/** Where the API key used for this session came from. */
+export type CredentialSource = 'configured' | 'session' | 'unset';
+
 export class AssistantSession {
   private sessionId: string;
   private history: HistoryEntry[] = [];
   private busy = false;
   private abortController: AbortController | null = null;
+
+  /**
+   * Session-scoped API key, held ONLY in memory. Never written to
+   * SecretStorage or disk. Set when the user explicitly chooses "use a
+   * different key for this session"; discarded on /reset, /exit, terminal
+   * close, and window reload.
+   */
+  private sessionApiKey: string | null = null;
+  private credentialSource: CredentialSource = 'unset';
+  /** True once the user has made (or skipped) the explicit key-source choice. */
+  private credentialChoiceMade = false;
 
   constructor(
     private readonly getClient: () => BackendClient | null,
@@ -96,6 +110,116 @@ export class AssistantSession {
       .get<string>('llm.provider', 'gemini');
   }
 
+  /** Human-readable credential source for /status — never reveals the key. */
+  get credentialSourceLabel(): string {
+    switch (this.credentialSource) {
+      case 'configured': return 'Existing configured key';
+      case 'session':    return 'Session-specific key (not saved)';
+      default:           return 'Not chosen yet';
+    }
+  }
+
+  /**
+   * Resolve the API key for this turn. A session-specific key (if the user
+   * set one) takes precedence over the configured key; otherwise the
+   * configured key from SecretStorage is used.
+   */
+  private async resolveApiKey(): Promise<string | undefined> {
+    if (this.credentialSource === 'session' && this.sessionApiKey) {
+      return this.sessionApiKey;
+    }
+    return this.secrets.getActiveApiKey();
+  }
+
+  /**
+   * Explicit API-key source choice (P2). Runs once per session, before the
+   * first backend request. If a configured key exists, the user must choose
+   * how to authenticate — Verbis never silently consumes a stored key.
+   *
+   * Returns true when a usable credential is available; false when the user
+   * cancelled or no key exists (caller should surface the returned message).
+   */
+  async ensureCredentialChoice(): Promise<{ ok: boolean; message?: string }> {
+    if (this.credentialChoiceMade) {
+      // Choice already made this session — just verify a key is present.
+      const key = await this.resolveApiKey();
+      return key
+        ? { ok: true }
+        : { ok: false, message: 'No API key available. Run "Verbis: Set API Key".' };
+    }
+
+    const configuredKey = await this.secrets.getActiveApiKey();
+    const provider = this.providerLabel;
+
+    if (!configuredKey) {
+      // No stored key — nothing to choose between; guide the user to set one.
+      this.credentialSource = 'unset';
+      // Don't mark choice made: if they later set a key, we prompt then.
+      return {
+        ok: false,
+        message: `No ${provider} API key is configured. Run "Verbis: Set API Key" first, then ask again.`,
+      };
+    }
+
+    // A stored key exists — require an explicit, informed choice.
+    const USE_EXISTING = 'Use existing configured key';
+    const USE_SESSION  = 'Use a different key for this session only';
+    const MANAGE       = 'Manage keys…';
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: USE_EXISTING, description: `Use the ${provider} key stored in VS Code SecretStorage` },
+        { label: USE_SESSION,  description: 'Paste a key used only for this terminal session — never saved' },
+        { label: MANAGE,       description: 'Set or remove stored keys' },
+      ],
+      {
+        title: 'Verbis: API Key Source',
+        placeHolder: 'A configured API key was found. How should Verbis authenticate this session?',
+        ignoreFocusOut: true,
+      },
+    );
+
+    if (!pick) {
+      // Cancelled — no silent consumption.
+      return { ok: false, message: 'Cancelled — no API key was used. Ask again when ready.' };
+    }
+
+    if (pick.label === MANAGE) {
+      await vscode.commands.executeCommand('verbis.setApiKey');
+      // Re-resolve after management; treat as configured if a key now exists.
+      const nowKey = await this.secrets.getActiveApiKey();
+      if (nowKey) {
+        this.credentialSource = 'configured';
+        this.credentialChoiceMade = true;
+        return { ok: true };
+      }
+      return { ok: false, message: 'No API key configured. Run "Verbis: Set API Key".' };
+    }
+
+    if (pick.label === USE_SESSION) {
+      const key = await vscode.window.showInputBox({
+        title: `Verbis — Session-only ${provider} API Key`,
+        prompt: 'This key is kept in memory for this terminal session only and is never saved.',
+        password: true,
+        ignoreFocusOut: true,
+        placeHolder: 'Paste your API key',
+        validateInput: (v: string) =>
+          v.trim().length < 10 ? 'Key looks too short — paste the full API key' : null,
+      });
+      if (!key) {
+        return { ok: false, message: 'Cancelled — no session key set. Ask again when ready.' };
+      }
+      this.sessionApiKey = key.trim();
+      this.credentialSource = 'session';
+      this.credentialChoiceMade = true;
+      return { ok: true };
+    }
+
+    // USE_EXISTING
+    this.credentialSource = 'configured';
+    this.credentialChoiceMade = true;
+    return { ok: true };
+  }
+
   /**
    * Submit one natural-language turn. Routes through the EXISTING
    * BackendClient.generate() pipeline — no SQL logic lives here.
@@ -112,13 +236,19 @@ export class AssistantSession {
       return { kind: 'error', message: 'Backend is not running. Start it with "Verbis: Restart Python Backend".' };
     }
 
+    // Explicit credential-source choice (P2) — never silently consume a key.
+    const cred = await this.ensureCredentialChoice();
+    if (!cred.ok) {
+      return { kind: 'message', message: cred.message ?? 'No API key available.' };
+    }
+
     this.busy = true;
     this.abortController = new AbortController();
     this.history.push({ role: 'user', content: nlInput, timestamp: Date.now() });
 
     try {
       const provider = this.providerLabel;
-      const apiKey = await this.secrets.getActiveApiKey();
+      const apiKey = await this.resolveApiKey();
       const dbConfigId = await this.resolveActiveConnectionId();
 
       const res = await client.generate({
@@ -232,12 +362,28 @@ export class AssistantSession {
     this.abortController?.abort();
   }
 
-  /** Start a fresh conversation (new session id, cleared local transcript). */
+  /**
+   * Start a fresh conversation (new session id, cleared local transcript).
+   * Also discards any session-specific API key and resets the credential
+   * choice, so the next session re-prompts for the key source.
+   */
   reset(): void {
     this.cancel();
     this.sessionId = AssistantSession.newSessionId();
     this.history = [];
     this.busy = false;
+    this.discardSessionKey();
+  }
+
+  /**
+   * Discard the session-specific API key (if any) and reset the credential
+   * choice. Called on /reset, /exit, terminal close, and window reload so a
+   * session-only key never outlives its session.
+   */
+  discardSessionKey(): void {
+    this.sessionApiKey = null;
+    this.credentialSource = 'unset';
+    this.credentialChoiceMade = false;
   }
 
   // ─── Internals ──────────────────────────────────────────────────────────
@@ -253,11 +399,11 @@ export class AssistantSession {
     if (err instanceof BackendClientError) {
       switch (err.kind) {
         case 'auth':       return 'Invalid API key. Run "Verbis: Set API Key".';
-        case 'rate_limit': return 'Rate limited by the LLM provider. Wait and retry.';
+        case 'rate_limit': return 'Rate limited by the LLM provider. Wait a moment and retry.';
         case 'timeout':    return 'The backend took too long to respond. Try a simpler question.';
-        case 'network':    return 'Could not reach the backend. Is it running?';
-        case 'server':     return `Backend error: ${err.message}`;
-        default:           return err.message;
+        case 'network':    return 'Could not reach the backend. Is it running? Try "Verbis: Restart Python Backend".';
+        case 'server':     return err.message; // already cleaned by extractDetail
+        default:           return err.message; // 404 + other: cleaned by extractDetail
       }
     }
     return err instanceof Error ? err.message : String(err);
