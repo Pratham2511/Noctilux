@@ -53,12 +53,14 @@ export class BackendClient {
     dialect: string;
     provider: string;
     apiKey: string;
+    model?: string;
   }): Promise<{ schema: unknown; ddl: string; mermaid: string; table_count: number }> {
     return this.requestJson('/api/schema/create', 'POST', {
       description: payload.description,
       dialect: payload.dialect,
       provider: payload.provider,
       api_key: payload.apiKey,
+      model: payload.model,
     });
   }
 
@@ -68,6 +70,7 @@ export class BackendClient {
     dialect: string;
     provider: string;
     apiKey: string;
+    model?: string;
   }): Promise<{ schema: unknown; ddl: string; mermaid: string; table_count: number }> {
     return this.requestJson('/api/schema/refine', 'POST', {
       existing_schema: payload.schema,
@@ -75,6 +78,7 @@ export class BackendClient {
       dialect: payload.dialect,
       provider: payload.provider,
       api_key: payload.apiKey,
+      model: payload.model,
     });
   }
 
@@ -102,6 +106,7 @@ export class BackendClient {
     disambiguationAnswers?: Record<string, string>;
     apiKey?: string;     // resolved from SecretStorage by caller
     provider?: string;   // 'gemini' | 'groq' | 'local' — from verbis.llm.provider
+    model?: string;      // user-configured model — from verbis.llm.geminiModel / groqModel
   }): Promise<{
     sql: string;
     confidence: number;
@@ -123,6 +128,7 @@ export class BackendClient {
       query_type: 'sql',
       provider: payload.provider ?? 'gemini',
       api_key: payload.apiKey ?? '',
+      model: payload.model,
       session_id: payload.sessionId,
       db_config_id: payload.dbConfigId,
     };

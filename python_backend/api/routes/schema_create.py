@@ -1,5 +1,7 @@
 """Schema Creation Routes — Text2Schema feature."""
 
+from typing import Optional
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 from services.schema_creator_service import (
@@ -15,6 +17,7 @@ class SchemaCreateRequest(BaseModel):
     dialect: str = "postgresql"
     provider: str = "gemini"
     api_key: str = ""
+    model: Optional[str] = None
 
 
 class SchemaRefineRequest(BaseModel):
@@ -23,6 +26,7 @@ class SchemaRefineRequest(BaseModel):
     dialect: str = "postgresql"
     provider: str = "gemini"
     api_key: str = ""
+    model: Optional[str] = None
 
 
 @router.post("/schema/create")
@@ -32,6 +36,7 @@ async def create_schema(req: SchemaCreateRequest):
         dialect=req.dialect,
         provider=req.provider,
         api_key=req.api_key,
+        model=req.model,
     )
     ddl = schema_to_ddl(schema, req.dialect)
     return {
@@ -50,6 +55,7 @@ async def refine_schema_endpoint(req: SchemaRefineRequest):
         dialect=req.dialect,
         provider=req.provider,
         api_key=req.api_key,
+        model=req.model,
     )
     ddl = schema_to_ddl(updated, req.dialect)
     return {

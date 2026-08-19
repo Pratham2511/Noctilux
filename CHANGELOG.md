@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.2.2] — 2026-08-20
+
+Gemini model retirement fix + documentation overhaul.
+
+### Fixed — Gemini 404 "model no longer available"
+
+- **Root cause:** the Gemini model was hardcoded as `gemini-2.5-flash` in three
+  separate backend `_get_client` functions (`llm_service.py`,
+  `intent_service.py`, `schema_creator_service.py`). Google retired that model
+  for new users, so every Gemini call returned HTTP 404. The
+  `verbis.llm.geminiModel` VS Code setting existed but was **never read by any
+  code** — a dead setting — so users had no way to override the retired model.
+- **Fix:** the default Gemini model is now `gemini-3.6-flash`, defined once as
+  `DEFAULT_GEMINI_MODEL` in `llm_service.py` and shared by the other services.
+  The `verbis.llm.geminiModel` / `verbis.llm.groqModel` settings are now read
+  by the extension and forwarded per-request through `BackendClient` →
+  `GenerateRequest.model` → the backend `_get_client`, so the configured model
+  is the one actually sent to the provider. Verified: the exact model string
+  reaching the Gemini API is `gemini-3.6-flash` by default and honors user
+  overrides.
+
+### Added — Retired-model detection with actionable errors
+
+- The backend detects retired/unknown-model errors (provider 404, "no longer
+  available", "not found", or a known-retired model name) and returns a clear
+  `400` naming the configured model, why it failed, which setting to update
+  (`verbis.llm.geminiModel`), and the supported default — instead of a raw
+  provider 404. API keys are never included in the message.
+
+### Added — Migration-safe warning for explicit retired settings
+
+- If you have **explicitly** set `verbis.llm.geminiModel` to a retired model
+  (e.g. `gemini-2.5-flash`), Verbis shows a one-time, non-destructive warning
+  with an "Open Settings" action. Your setting is never overwritten — fresh
+  installs simply default to `gemini-3.6-flash`.
+
+### Changed — Documentation
+
+- README rewritten to describe the **current** product (terminal assistant,
+  slash commands, scope guard, credential choice, Text2Schema, configuration).
+  Removed the accumulated "What's New in vX.Y.Z" running history and stale
+  references (webview chat as the primary interface, `gemini-2.5-flash` as the
+  default, retired commands). Version history now lives only in this
+  CHANGELOG.
+
 ## [1.2.1] — 2026-08-19
 
 Corrective patch release. v1.2.0 shipped several regressions; this release

@@ -1,12 +1,44 @@
 from fastapi import APIRouter, HTTPException
 from models.requests import GenerateRequest
-from services.llm_service import generate_sql, generate_nosql
+from services.llm_service import (
+    DEFAULT_GEMINI_MODEL,
+    RETIRED_GEMINI_MODELS,
+    generate_sql,
+    generate_nosql,
+)
 from services.intent_service import classify_intent, clear_intent_cache
 
 router = APIRouter()
 
 
-def _friendly_generation_error(exc: Exception) -> HTTPException:
+def _retired_model_error(provider: str, model: str) -> HTTPException:
+    """Build a clear, actionable error for a model the provider has retired.
+
+    Never includes the API key. Tells the user exactly which configured model
+    failed, why, where to change it, and which supported model to use.
+    """
+    if provider == "gemini":
+        return HTTPException(
+            status_code=400,
+            detail=(
+                f"The configured Gemini model '{model}' is no longer available "
+                "(Google retired it for new users). "
+                f"Update the VS Code setting 'verbis.llm.geminiModel' to "
+                f"'{DEFAULT_GEMINI_MODEL}' (the current default) or another supported model, "
+                "then try again."
+            ),
+        )
+    return HTTPException(
+        status_code=400,
+        detail=(
+            f"The configured model '{model}' for provider '{provider}' was not found "
+            "or is no longer available. Check the corresponding 'verbis.llm.*Model' "
+            "setting and try again."
+        ),
+    )
+
+
+def _friendly_generation_error(exc: Exception, provider: str = "", model: str = "") -> HTTPException:
     """
     Map low-level LLM client errors to actionable HTTP errors.
 
@@ -15,6 +47,18 @@ def _friendly_generation_error(exc: Exception) -> HTTPException:
     Instead we return a clean detail string the extension can display directly.
     """
     msg = str(exc).lower()
+
+    # Retired / unknown model (provider 404, "no longer available", "not found").
+    # Detect BEFORE the generic 502 so users get an actionable message.
+    if (
+        "no longer available" in msg
+        or "is not found" in msg
+        or "model not found" in msg
+        or ("404" in msg and "model" in msg)
+        or (model and model in RETIRED_GEMINI_MODELS)
+    ):
+        return _retired_model_error(provider, model or "(unknown)")
+
     if "missing credentials" in msg or "api_key" in msg or "api key" in msg or "unauthorized" in msg or "401" in msg:
         return HTTPException(
             status_code=401,
@@ -38,6 +82,7 @@ async def generate(req: GenerateRequest):
         user_message=req.nl_query,
         provider=req.provider,
         api_key=req.api_key,
+        model=req.model,
     )
     if intent == "OFFTOPIC":
         return {
@@ -56,6 +101,7 @@ async def generate(req: GenerateRequest):
                 schema_context=req.schema_context,
                 provider=req.provider,
                 api_key=req.api_key,
+                model=req.model,
             )
         else:
             result = await generate_sql(
@@ -64,11 +110,12 @@ async def generate(req: GenerateRequest):
                 dialect=req.dialect,
                 provider=req.provider,
                 api_key=req.api_key,
+                model=req.model,
             )
     except HTTPException:
         raise
     except Exception as exc:
-        raise _friendly_generation_error(exc)
+        raise _friendly_generation_error(exc, req.provider, req.model or "")
     return {"query": result, "confidence": 0.9, "alternatives": []}
 
 

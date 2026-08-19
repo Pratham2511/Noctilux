@@ -2,7 +2,7 @@
   "name": "verbis-db-assistant",
   "displayName": "Verbis — Intelligent Database Assistant",
   "description": "Talk to any database in plain English. Verbis converts natural language into optimized SQL and NoSQL queries, explains results, tracks query history, and protects your data — all inside VS Code.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "publisher": "pratham2511",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -160,8 +160,8 @@
         },
         "verbis.llm.geminiModel": {
           "type": "string",
-          "default": "gemini-2.5-flash",
-          "description": "Gemini model to use."
+          "default": "gemini-3.6-flash",
+          "description": "Gemini model to use. Default is gemini-3.6-flash. Note: gemini-2.5-flash and earlier 2.x/1.x models were retired by Google for new users."
         },
         "verbis.llm.groqModel": {
           "type": "string",

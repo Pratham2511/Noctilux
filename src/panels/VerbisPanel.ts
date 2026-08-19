@@ -74,6 +74,22 @@ export class VerbisPanel {
     this.panel.onDidDispose(() => this.dispose(), undefined, this.disposables);
   }
 
+  /**
+   * Resolve the user-configured model for the active provider
+   * (`verbis.llm.geminiModel` / `verbis.llm.groqModel`). Returns undefined for
+   * the local provider or blank values so the backend applies its default.
+   */
+  private resolveModel(provider: string): string | undefined {
+    const cfg = vscode.workspace.getConfiguration('verbis');
+    if (provider === 'gemini') {
+      return cfg.get<string>('llm.geminiModel', 'gemini-3.6-flash').trim() || undefined;
+    }
+    if (provider === 'groq') {
+      return cfg.get<string>('llm.groqModel', 'llama-3.3-70b-versatile').trim() || undefined;
+    }
+    return undefined;
+  }
+
   // ── Fix D — Connection selection helpers ────────────────────────────
   /** Called by extension.ts when user selects a connection (verbis.selectConnection
    *  command) or after verbis.addConnection creates a new connection. */
@@ -203,6 +219,7 @@ export class VerbisPanel {
             disambiguationAnswers: payload.disambiguationAnswers,
             apiKey,
             provider,
+            model: this.resolveModel(provider),
           });
 
           this.panel.webview.postMessage({
@@ -303,7 +320,7 @@ export class VerbisPanel {
           const apiKey = await this.secrets.getActiveApiKey() ?? '';
           const provider = vscode.workspace.getConfiguration('verbis').get<string>('llm.provider', 'gemini');
           try {
-            const result = await this.client.createSchema({ description, dialect, provider, apiKey });
+            const result = await this.client.createSchema({ description, dialect, provider, apiKey, model: this.resolveModel(provider) });
             this.panel.webview.postMessage({ type: 'SCHEMA_RESULT', payload: result });
           } catch (e: any) {
             this.panel.webview.postMessage({ type: 'SCHEMA_ERROR', payload: { message: e.message } });
@@ -316,7 +333,7 @@ export class VerbisPanel {
           const apiKey = await this.secrets.getActiveApiKey() ?? '';
           const provider = vscode.workspace.getConfiguration('verbis').get<string>('llm.provider', 'gemini');
           try {
-            const result = await this.client.refineSchema({ schema, refinement, dialect, provider, apiKey });
+            const result = await this.client.refineSchema({ schema, refinement, dialect, provider, apiKey, model: this.resolveModel(provider) });
             this.panel.webview.postMessage({ type: 'SCHEMA_RESULT', payload: result });
           } catch (e: any) {
             this.panel.webview.postMessage({ type: 'SCHEMA_ERROR', payload: { message: e.message } });

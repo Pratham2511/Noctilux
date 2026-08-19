@@ -63,6 +63,14 @@ export declare class AssistantSession {
     private credentialSource;
     /** True once the user has made (or skipped) the explicit key-source choice. */
     private credentialChoiceMade;
+    /** True once we've warned about an explicitly-configured retired model. */
+    private retiredModelWarned;
+    /**
+     * Gemini models Google has retired for new users. Kept in sync with the
+     * backend's RETIRED_GEMINI_MODELS. Used only to show a helpful warning —
+     * we NEVER overwrite the user's setting.
+     */
+    private static readonly RETIRED_GEMINI_MODELS;
     constructor(getClient: () => BackendClient | null, secrets: SecretsService, workspace: WorkspaceService);
     private static newSessionId;
     /** Stable id for this conversation — forwarded to the backend on every turn. */
@@ -73,6 +81,22 @@ export declare class AssistantSession {
     get transcript(): ReadonlyArray<HistoryEntry>;
     /** Active LLM provider label (from settings), for display. */
     get providerLabel(): string;
+    /**
+     * Resolve the model to send to the backend for the active provider.
+     * Reads the user-configured `verbis.llm.geminiModel` / `verbis.llm.groqModel`
+     * setting. Returns undefined for the local provider (backend uses its own
+     * default) or when the setting is blank — the backend then applies its
+     * current default. This is what actually reaches the LLM API.
+     */
+    private resolveModel;
+    /**
+     * Migration-safe handling for users who EXPLICITLY set a now-retired Gemini
+     * model. We detect an explicit user/workspace setting (not the default) and
+     * show ONE clear, actionable warning. We never modify or overwrite the
+     * setting — the user stays in control. The backend will also reject the
+     * retired model with a descriptive 400 if the request is still sent.
+     */
+    private warnIfRetiredGeminiModel;
     /** Human-readable credential source for /status — never reveals the key. */
     get credentialSourceLabel(): string;
     /**

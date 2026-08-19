@@ -43,6 +43,7 @@ class BackendClient {
             dialect: payload.dialect,
             provider: payload.provider,
             api_key: payload.apiKey,
+            model: payload.model,
         });
     }
     async refineSchema(payload) {
@@ -52,6 +53,7 @@ class BackendClient {
             dialect: payload.dialect,
             provider: payload.provider,
             api_key: payload.apiKey,
+            model: payload.model,
         });
     }
     // ── Schema refresh after DDL (Fix C + Fix F) ────────────────────────
@@ -81,6 +83,7 @@ class BackendClient {
             query_type: 'sql',
             provider: payload.provider ?? 'gemini',
             api_key: payload.apiKey ?? '',
+            model: payload.model,
             session_id: payload.sessionId,
             db_config_id: payload.dbConfigId,
         };

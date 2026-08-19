@@ -1,5 +1,5 @@
 """
-LLM Service — Gemini 2.5 Flash (primary) + Groq + Ollama local mode.
+LLM Service — Gemini (primary) + Groq + Ollama local mode.
 API key is passed per-request from VS Code SecretStorage. Nothing stored server-side.
 
 Exposes two APIs:
@@ -10,28 +10,57 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
+from typing import Optional
 
 from openai import AsyncOpenAI
 
 from config import Settings
 
+# ─── Default models ──────────────────────────────────────────────────────
+# Single source of truth for the built-in model used per provider when the
+# caller does not supply one. The extension's `verbis.llm.geminiModel` /
+# `verbis.llm.groqModel` settings are forwarded per-request and override these.
+DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_LOCAL_MODEL = "sqlcoder:latest"
 
-def _get_client(provider: str, api_key: str) -> tuple[AsyncOpenAI, str]:
+# Models that Google has retired for new users. If a user still has one of
+# these configured, we surface a clear, actionable error instead of a raw
+# provider 404. Kept as a set for O(1) lookup and easy extension.
+RETIRED_GEMINI_MODELS = {
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-pro",
+}
+
+
+def _get_client(
+    provider: str,
+    api_key: str,
+    model: Optional[str] = None,
+) -> tuple[AsyncOpenAI, str]:
+    """Build an OpenAI-compatible client + the model to call.
+
+    `model` is the user-configured model forwarded from the extension. When
+    omitted/blank, the provider's current default is used.
+    """
     if provider == "gemini":
         return AsyncOpenAI(
             api_key=api_key,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        ), "gemini-2.5-flash"
+        ), (model or DEFAULT_GEMINI_MODEL)
     elif provider == "groq":
         return AsyncOpenAI(
             api_key=api_key,
             base_url="https://api.groq.com/openai/v1",
-        ), "llama-3.3-70b-versatile"
+        ), (model or DEFAULT_GROQ_MODEL)
     else:  # local / ollama
         return AsyncOpenAI(
             api_key="not-needed",
             base_url="http://localhost:11434/v1",
-        ), "sqlcoder:latest"
+        ), (model or DEFAULT_LOCAL_MODEL)
 
 
 SQL_PROMPT = """You are Verbis, an expert database assistant.
@@ -50,8 +79,9 @@ async def generate_sql(
     dialect: str = "postgresql",
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> str:
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[
@@ -71,8 +101,9 @@ async def generate_nosql(
     schema_context: str,
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> str:
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[
@@ -93,8 +124,9 @@ async def explain_plan(
     execution_plan: str,
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> str:
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[
@@ -114,8 +146,9 @@ async def generate_narrative(
     user_query: str,
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> str:
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[
@@ -158,23 +191,30 @@ class LLMRouter:
         self._settings = settings
         self._local = threading.local()
 
-    def set_api_key(self, api_key: str, provider: str = '') -> None:
-        """Set the request-scoped API key (called by route handlers)."""
+    def set_api_key(self, api_key: str, provider: str = '', model: str = '') -> None:
+        """Set the request-scoped API key (called by route handlers).
+
+        `model` is the optional user-configured model override forwarded from
+        the extension; when blank the provider default is used.
+        """
         self._local.api_key = api_key
         if provider:
             self._local.provider = provider
+        if model:
+            self._local.model = model
 
     def _resolve(self, use_cloud: bool) -> tuple[AsyncOpenAI, str, str]:
         """Pick client/model/mode based on settings + per-call overrides."""
         api_key = getattr(self._local, 'api_key', '') or self._settings.cloud_api_key
         provider = getattr(self._local, 'provider', '') or ''
+        model_override = getattr(self._local, 'model', '') or None
 
         if not use_cloud or self._settings.llm_mode == 'local':
-            client, model = _get_client('local', '')
+            client, model = _get_client('local', '', model_override)
             return client, model, 'local'
 
         if provider:
-            client, model = _get_client(provider, api_key)
+            client, model = _get_client(provider, api_key, model_override)
             return client, model, 'cloud'
 
         # Cloud mode via settings (generic OpenAI-compatible endpoint)

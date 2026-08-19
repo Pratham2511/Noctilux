@@ -67,6 +67,20 @@ class AssistantSession {
     credentialSource = 'unset';
     /** True once the user has made (or skipped) the explicit key-source choice. */
     credentialChoiceMade = false;
+    /** True once we've warned about an explicitly-configured retired model. */
+    retiredModelWarned = false;
+    /**
+     * Gemini models Google has retired for new users. Kept in sync with the
+     * backend's RETIRED_GEMINI_MODELS. Used only to show a helpful warning —
+     * we NEVER overwrite the user's setting.
+     */
+    static RETIRED_GEMINI_MODELS = new Set([
+        'gemini-2.5-flash',
+        'gemini-2.5-pro',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-pro',
+    ]);
     constructor(getClient, secrets, workspace) {
         this.getClient = getClient;
         this.secrets = secrets;
@@ -93,6 +107,58 @@ class AssistantSession {
         return vscode.workspace
             .getConfiguration('verbis')
             .get('llm.provider', 'gemini');
+    }
+    /**
+     * Resolve the model to send to the backend for the active provider.
+     * Reads the user-configured `verbis.llm.geminiModel` / `verbis.llm.groqModel`
+     * setting. Returns undefined for the local provider (backend uses its own
+     * default) or when the setting is blank — the backend then applies its
+     * current default. This is what actually reaches the LLM API.
+     */
+    resolveModel() {
+        const cfg = vscode.workspace.getConfiguration('verbis');
+        const provider = this.providerLabel;
+        if (provider === 'gemini') {
+            return cfg.get('llm.geminiModel', 'gemini-3.6-flash').trim() || undefined;
+        }
+        if (provider === 'groq') {
+            return cfg.get('llm.groqModel', 'llama-3.3-70b-versatile').trim() || undefined;
+        }
+        return undefined; // local — backend default (sqlcoder)
+    }
+    /**
+     * Migration-safe handling for users who EXPLICITLY set a now-retired Gemini
+     * model. We detect an explicit user/workspace setting (not the default) and
+     * show ONE clear, actionable warning. We never modify or overwrite the
+     * setting — the user stays in control. The backend will also reject the
+     * retired model with a descriptive 400 if the request is still sent.
+     */
+    warnIfRetiredGeminiModel() {
+        if (this.retiredModelWarned) {
+            return;
+        }
+        if (this.providerLabel !== 'gemini') {
+            return;
+        }
+        const inspected = vscode.workspace
+            .getConfiguration('verbis')
+            .inspect('llm.geminiModel');
+        const explicit = inspected?.globalValue ?? inspected?.workspaceValue ?? inspected?.workspaceFolderValue;
+        if (!explicit || !AssistantSession.RETIRED_GEMINI_MODELS.has(explicit.trim())) {
+            return;
+        }
+        this.retiredModelWarned = true;
+        const configured = explicit.trim();
+        vscode.window
+            .showWarningMessage(`Verbis: your configured Gemini model "${configured}" was retired by Google ` +
+            `for new users, so requests will fail. Update the setting ` +
+            `"verbis.llm.geminiModel" to "gemini-3.6-flash" (the current default) or another ` +
+            `supported model.`, 'Open Settings')
+            .then((choice) => {
+            if (choice === 'Open Settings') {
+                vscode.commands.executeCommand('workbench.action.openSettings', 'verbis.llm.geminiModel');
+            }
+        });
     }
     /** Human-readable credential source for /status — never reveals the key. */
     get credentialSourceLabel() {
@@ -122,6 +188,9 @@ class AssistantSession {
      * cancelled or no key exists (caller should surface the returned message).
      */
     async ensureCredentialChoice() {
+        // Surface a one-time, non-destructive warning if the user has explicitly
+        // configured a retired Gemini model. Does not block; the backend enforces.
+        this.warnIfRetiredGeminiModel();
         if (this.credentialChoiceMade) {
             // Choice already made this session — just verify a key is present.
             const key = await this.resolveApiKey();
@@ -216,6 +285,7 @@ class AssistantSession {
         try {
             const provider = this.providerLabel;
             const apiKey = await this.resolveApiKey();
+            const model = this.resolveModel();
             const dbConfigId = await this.resolveActiveConnectionId();
             const res = await client.generate({
                 nlInput,
@@ -223,6 +293,7 @@ class AssistantSession {
                 sessionId: this.sessionId,
                 apiKey,
                 provider,
+                model,
             });
             if (this.abortController.signal.aborted) {
                 return { kind: 'cancelled', message: 'Request cancelled.', wasCancelled: true };

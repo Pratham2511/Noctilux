@@ -21,6 +21,7 @@ export declare class BackendClient {
         dialect: string;
         provider: string;
         apiKey: string;
+        model?: string;
     }): Promise<{
         schema: unknown;
         ddl: string;
@@ -33,6 +34,7 @@ export declare class BackendClient {
         dialect: string;
         provider: string;
         apiKey: string;
+        model?: string;
     }): Promise<{
         schema: unknown;
         ddl: string;
@@ -51,6 +53,7 @@ export declare class BackendClient {
         disambiguationAnswers?: Record<string, string>;
         apiKey?: string;
         provider?: string;
+        model?: string;
     }): Promise<{
         sql: string;
         confidence: number;

@@ -14,6 +14,12 @@ export declare class VerbisPanel {
     private activeConnectionId;
     static createOrShow(context: vscode.ExtensionContext, client: BackendClient | null, workspace: WorkspaceService, secrets: SecretsService): VerbisPanel;
     private constructor();
+    /**
+     * Resolve the user-configured model for the active provider
+     * (`verbis.llm.geminiModel` / `verbis.llm.groqModel`). Returns undefined for
+     * the local provider or blank values so the backend applies its default.
+     */
+    private resolveModel;
     /** Called by extension.ts when user selects a connection (verbis.selectConnection
      *  command) or after verbis.addConnection creates a new connection. */
     setActiveConnection(connectionId: string): void;

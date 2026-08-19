@@ -36,6 +36,12 @@ from typing import Optional, Tuple
 from openai import AsyncOpenAI
 from cachetools import LRUCache  # Added EXPLICITLY to requirements.txt — NOT transitive
 
+from services.llm_service import (
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_GROQ_MODEL,
+    DEFAULT_LOCAL_MODEL,
+)
+
 
 # ── LRU cache: 200 entries (active users type 50+ unique queries/session) ──
 _intent_cache: LRUCache = LRUCache(maxsize=200)
@@ -166,15 +172,23 @@ OFFTOPIC_RESPONSES = [
 
 # ── Client builder ────────────────────────────────────────────────────
 
-def _get_client(provider: str, api_key: str) -> Tuple[AsyncOpenAI, str]:
-    """Return (AsyncOpenAI client, model_name) for the given provider."""
+def _get_client(
+    provider: str,
+    api_key: str,
+    model: Optional[str] = None,
+) -> Tuple[AsyncOpenAI, str]:
+    """Return (AsyncOpenAI client, model_name) for the given provider.
+
+    `model` is the user-configured override forwarded from the extension;
+    when blank the provider's current default is used.
+    """
     if provider == "gemini":
         return (
             AsyncOpenAI(
                 api_key=api_key,
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             ),
-            "gemini-2.5-flash",
+            (model or DEFAULT_GEMINI_MODEL),
         )
     elif provider == "groq":
         return (
@@ -182,7 +196,7 @@ def _get_client(provider: str, api_key: str) -> Tuple[AsyncOpenAI, str]:
                 api_key=api_key,
                 base_url="https://api.groq.com/openai/v1",
             ),
-            "llama-3.3-70b-versatile",
+            (model or DEFAULT_GROQ_MODEL),
         )
     else:  # local / ollama
         return (
@@ -190,7 +204,7 @@ def _get_client(provider: str, api_key: str) -> Tuple[AsyncOpenAI, str]:
                 api_key="not-needed",
                 base_url="http://localhost:11434/v1",
             ),
-            "sqlcoder:latest",
+            (model or DEFAULT_LOCAL_MODEL),
         )
 
 
@@ -200,6 +214,7 @@ async def classify_intent(
     user_message: str,
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> Tuple[str, Optional[str]]:
     """
     Classify whether user_message is database-related or off-topic.
@@ -232,7 +247,7 @@ async def classify_intent(
         return _intent_cache[cache_key]
 
     try:
-        client, model = _get_client(provider, api_key)
+        client, model = _get_client(provider, api_key, model)
         r = await client.chat.completions.create(
             model=model,
             messages=[

@@ -11,18 +11,30 @@ create → query → optimize → explain.
 """
 
 import json
+from typing import Optional
+
 from openai import AsyncOpenAI
 
+from services.llm_service import (
+    DEFAULT_GEMINI_MODEL,
+    DEFAULT_GROQ_MODEL,
+    DEFAULT_LOCAL_MODEL,
+)
 
-def _get_client(provider: str, api_key: str) -> tuple:
-    """Returns (AsyncOpenAI client, model_name). Defined locally — not imported."""
+
+def _get_client(provider: str, api_key: str, model: Optional[str] = None) -> tuple:
+    """Returns (AsyncOpenAI client, model_name).
+
+    `model` is the user-configured override forwarded from the extension;
+    when blank the provider's current default is used.
+    """
     if provider == "gemini":
         return (
             AsyncOpenAI(
                 api_key=api_key,
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             ),
-            "gemini-2.5-flash",
+            (model or DEFAULT_GEMINI_MODEL),
         )
     elif provider == "groq":
         return (
@@ -30,12 +42,12 @@ def _get_client(provider: str, api_key: str) -> tuple:
                 api_key=api_key,
                 base_url="https://api.groq.com/openai/v1",
             ),
-            "llama-3.3-70b-versatile",
+            (model or DEFAULT_GROQ_MODEL),
         )
     else:
         return (
             AsyncOpenAI(api_key="not-needed", base_url="http://localhost:11434/v1"),
-            "sqlcoder:latest",
+            (model or DEFAULT_LOCAL_MODEL),
         )
 
 
@@ -93,9 +105,10 @@ async def generate_schema_from_nl(
     dialect: str = "postgresql",
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> dict:
     """Convert NL description into structured schema JSON."""
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[
@@ -205,9 +218,10 @@ async def refine_schema(
     dialect: str = "postgresql",
     provider: str = "gemini",
     api_key: str = "",
+    model: Optional[str] = None,
 ) -> dict:
     """Apply a NL refinement request to an existing schema. Returns the COMPLETE updated schema."""
-    client, model = _get_client(provider, api_key)
+    client, model = _get_client(provider, api_key, model)
     r = await client.chat.completions.create(
         model=model,
         messages=[

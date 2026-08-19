@@ -9,6 +9,7 @@ class GenerateRequest(BaseModel):
     query_type: str = "sql"          # "sql" | "nosql"
     provider: str = "gemini"         # "gemini" | "groq" | "local"
     api_key: str = ""                # from VS Code SecretStorage — never stored
+    model: Optional[str] = None      # user-configured model override (verbis.llm.*Model)
     session_id: Optional[str] = None
     db_config_id: Optional[str] = None
 
