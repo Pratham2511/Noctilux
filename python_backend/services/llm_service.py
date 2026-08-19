@@ -27,6 +27,14 @@ def _get_client(provider: str, api_key: str) -> tuple[AsyncOpenAI, str]:
             api_key=api_key,
             base_url="https://api.groq.com/openai/v1",
         ), "llama-3.3-70b-versatile"
+    elif provider == "kimi":
+        # Moonshot AI — OpenAI-compatible endpoint. Kimi K3 is the current
+        # flagship generation; the exact model id is configurable via
+        # verbis.llm.kimiModel and forwarded through Settings.
+        return AsyncOpenAI(
+            api_key=api_key,
+            base_url="https://api.moonshot.ai/v1",
+        ), Settings().kimi_model or "kimi-k3"
     else:  # local / ollama
         return AsyncOpenAI(
             api_key="not-needed",

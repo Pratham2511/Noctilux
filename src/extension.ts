@@ -20,11 +20,12 @@ import { QueryTreePanel } from './panels/QueryTreePanel';
 import { WorkspaceService } from './services/WorkspaceService';
 import { SecretsService } from './services/SecretsService';
 import { ConnectionsProvider, SchemaTreeProvider, HistoryProvider } from './views/SidebarProviders';
-import { ChatViewProvider } from './views/ChatViewProvider';
+import { TerminalManager } from './terminal/TerminalManager';
 
 let backendManager: BackendManager | undefined;
 let workspaceService: WorkspaceService | undefined;
 let secretsService: SecretsService | undefined;
+let terminalManager: TerminalManager | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   console.info('[Verbis] Activating extension v1.1.0…');
@@ -132,19 +133,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const connectionsProvider = new ConnectionsProvider(workspaceService);
   const schemaTreeProvider = new SchemaTreeProvider(() => backendManager?.getClient() ?? null);
   const historyProvider = new HistoryProvider(workspaceService);
-  const chatViewProvider = new ChatViewProvider(
-    context,
-    () => backendManager?.getClient() ?? null,
-    workspaceService,
-    secretsService
-  );
 
   backendManager.on('status', (status) => {
     VerbisPanel.currentPanel?.postMessage({
-      type: 'BACKEND_STATUS',
-      payload: status,
-    });
-    chatViewProvider.postMessage({
       type: 'BACKEND_STATUS',
       payload: status,
     });
@@ -154,9 +145,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerTreeDataProvider('verbis.connections', connectionsProvider),
     vscode.window.registerTreeDataProvider('verbis.schema', schemaTreeProvider),
     vscode.window.registerTreeDataProvider('verbis.history', historyProvider),
-    vscode.window.registerWebviewViewProvider('verbis.chatView', chatViewProvider, {
-      webviewOptions: { retainContextWhenHidden: true },
-    }),
   );
 
   // Refresh schema tree when backend becomes ready
@@ -168,19 +156,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   });
 
+  // ─── 2c. Terminal assistant (primary conversational interface) ────────
+  terminalManager = new TerminalManager(
+    () => backendManager?.getClient() ?? null,
+    () => backendManager?.getStatus() ?? { state: 'stopped' },
+    secretsService,
+    workspaceService
+  );
+  context.subscriptions.push(terminalManager);
+
   // ─── 3. Register commands ───────────────────────────────────────────
   context.subscriptions.push(
+
+    vscode.commands.registerCommand('verbis.openAssistant', () => {
+      terminalManager?.open();
+    }),
 
     vscode.commands.registerCommand('verbis.setApiKey', async () => {
       const provider = await vscode.window.showQuickPick(
         [
           { label: 'Google Gemini', description: 'Recommended — free tier', value: 'gemini' },
-          { label: 'Groq',          description: 'Alternative — free tier', value: 'groq'   }
+          { label: 'Groq',          description: 'Alternative — free tier', value: 'groq'   },
+          { label: 'Kimi (Moonshot AI)', description: 'Kimi K3', value: 'kimi' }
         ],
         { title: 'Verbis: Which provider?' }
       );
       if (provider && secretsService) {
-        await promptForKey(secretsService, provider.value as 'gemini' | 'groq');
+        await promptForKey(secretsService, provider.value as 'gemini' | 'groq' | 'kimi');
         // Fix B: clear intent cache after setting a new key
         const client = backendManager?.getClient();
         if (client) {
@@ -201,6 +203,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       if (confirmed === 'Remove' && secretsService) {
         await secretsService.deleteGeminiKey();
+        await secretsService.deleteKimiKey();
         // Fix B: clear intent cache after deleting the key
         const client = backendManager?.getClient();
         if (client) {
@@ -234,26 +237,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
       if (picked) {
         VerbisPanel.currentPanel?.setActiveConnection(picked.id);
-        chatViewProvider.setActiveConnection(picked.id);
         vscode.window.setStatusBarMessage(`Verbis: active connection → ${picked.label}`, 3000);
       }
-    }),
-
-    vscode.commands.registerCommand('verbis.openChat', async () => {
-      if (!workspaceService || !secretsService || !backendManager) return;
-      // Focus the sidebar chat view (Copilot-Chat-style). This reveals the
-      // Verbis activity-bar container and the Chat view inside it.
-      await vscode.commands.executeCommand('verbis.chatView.focus');
-    }),
-
-    vscode.commands.registerCommand('verbis.openChatPanel', () => {
-      if (!workspaceService || !secretsService || !backendManager) return;
-      VerbisPanel.createOrShow(
-        context,
-        backendManager.getClient(),
-        workspaceService,
-        secretsService
-      );
     }),
 
     vscode.commands.registerCommand('verbis.runLastQuery', async () => {
@@ -320,9 +305,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       // `id` is the existing variable declared above as `const id = crypto.randomUUID()`.
       // Do NOT invent a new variable name — use `id` directly.
       VerbisPanel.currentPanel?.setActiveConnection(id);
-      chatViewProvider.setActiveConnection(id);
       await VerbisPanel.currentPanel?.pushConnections();
-      await chatViewProvider.pushConnections();
       connectionsProvider.refresh();
       vscode.window.setStatusBarMessage(`Verbis: active connection → ${name}`, 3000);
       vscode.window.showInformationMessage(`Connection "${name}" saved.`);
@@ -437,7 +420,7 @@ const looksLikeApiKey = (v: string): string | null =>
 // ── Helper — reusable key prompt ─────────────────────────────────────
 async function promptForKey(
     secrets: SecretsService,
-    provider: 'gemini' | 'groq'
+    provider: 'gemini' | 'groq' | 'kimi'
 ): Promise<void> {
     const config = {
         gemini: {
@@ -449,6 +432,12 @@ async function promptForKey(
         groq: {
             title: 'Verbis — Groq API Key',
             prompt: 'Free key from console.groq.com → API Keys',
+            placeholder: 'Paste your API key',
+            validate: looksLikeApiKey
+        },
+        kimi: {
+            title: 'Verbis — Kimi (Moonshot AI) API Key',
+            prompt: 'Key from platform.moonshot.ai → API Keys',
             placeholder: 'Paste your API key',
             validate: looksLikeApiKey
         }
@@ -464,7 +453,8 @@ async function promptForKey(
     });
 
     if (!key) { return; }
-    if (provider === 'gemini') { await secrets.storeGeminiKey(key); }
-    else                       { await secrets.storeGroqKey(key); }
+    if (provider === 'gemini')      { await secrets.storeGeminiKey(key); }
+    else if (provider === 'kimi')   { await secrets.storeKimiKey(key); }
+    else                            { await secrets.storeGroqKey(key); }
     vscode.window.showInformationMessage(`Verbis: ${provider} key saved securely ✓`);
 }

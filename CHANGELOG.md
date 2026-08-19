@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.2.0] — 2026-08-19
+
+### Changed — Terminal assistant replaces the webview chat (major UX change)
+
+The conversational interface is now a **Claude Code–style REPL hosted in VS
+Code's integrated terminal** (via the `Pseudoterminal` API), instead of a
+React webview chat. The terminal is the primary and default way to talk to
+Verbis.
+
+- **New command `Verbis: Open Assistant`** (`Ctrl+Shift+Q`) opens the
+  assistant terminal. Re-running it focuses the existing terminal rather
+  than spawning duplicates.
+- **Real terminal behavior:** live typing, cursor, backspace, Enter to send,
+  Ctrl+C to cancel the in-flight request (or clear the line when idle).
+- **Slash commands handled locally:** `/help` `/run` `/status` `/model`
+  `/history` `/clear` `/reset` `/cancel` `/exit`. They never reach the
+  backend.
+- **One request at a time:** while the agent is working, further Enter
+  presses are ignored with a notice; Ctrl+C cancels.
+- **Conversation context preserved** per terminal via a stable `sessionId`
+  forwarded to the backend on every turn; `/reset` starts a fresh session.
+- **Generation vs. execution stay distinct:** the agent generates SQL;
+  `/run` explicitly executes the last generated statement through the
+  existing execution path (row limits, read-only guard, history logging).
+
+### Added — Kimi (Moonshot AI) provider
+
+- New `kimi` provider option routes through the existing provider
+  abstraction to Moonshot AI's OpenAI-compatible endpoint
+  (`https://api.moonshot.ai/v1`), defaulting to the **Kimi K3** model.
+- Configurable via `verbis.llm.kimiModel`; API key stored in VS Code
+  SecretStorage (`Verbis: Set API Key` → Kimi). Keys are never logged or
+  persisted server-side.
+
+### Architecture
+
+- **`src/assistant/AssistantSession.ts`** (new) — UI-independent
+  conversational controller. Owns session state, busy flag, and
+  cancellation; delegates all SQL generation/execution to the existing
+  `BackendClient` pipeline. No agent logic is duplicated in the UI layer.
+- **`src/terminal/VerbisTerminal.ts`** (new) — the `Pseudoterminal` REPL:
+  keystroke handling, output formatting, slash commands.
+- **`src/terminal/TerminalManager.ts`** (new) — terminal lifecycle (create,
+  reuse, cleanup).
+
+### Removed — old chat from the main flow
+
+- Removed the `verbis.chatView` sidebar webview and its `ChatViewProvider`.
+- Removed the `Verbis: Open Chat` and `Verbis: Open Chat in Editor Panel`
+  commands (the terminal supersedes them).
+- Removed the chat tab and its components from the React webview
+  (`ChatPanel`, `MessageBubble`, `SQLCodeBlock`, `ConfidenceBar`,
+  `NarrativeCard`, `ResultTable`). The webview bundle remains for the
+  schema / glossary / query-tree / connections panels.
+
+Backend functionality, connection management, schema/history sidebar trees,
+settings, and API-key commands are unchanged.
+
+---
+
 ## [1.1.5] — 2026-08-19
 
 ### Added — Sidebar chat (Copilot-Chat-style)

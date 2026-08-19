@@ -1,0 +1,92 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SecretsService = void 0;
+const vscode = __importStar(require("vscode"));
+class SecretsService {
+    context;
+    static GEMINI_KEY = 'verbis.geminiApiKey';
+    static GROQ_KEY = 'verbis.groqApiKey';
+    static KIMI_KEY = 'verbis.kimiApiKey';
+    static DB_PREFIX = 'verbis.db.password.';
+    constructor(context) {
+        this.context = context;
+    }
+    async storeGeminiKey(key) {
+        await this.context.secrets.store(SecretsService.GEMINI_KEY, key);
+    }
+    async getGeminiKey() {
+        return this.context.secrets.get(SecretsService.GEMINI_KEY);
+    }
+    async deleteGeminiKey() {
+        await this.context.secrets.delete(SecretsService.GEMINI_KEY);
+    }
+    async storeGroqKey(key) {
+        await this.context.secrets.store(SecretsService.GROQ_KEY, key);
+    }
+    async getGroqKey() {
+        return this.context.secrets.get(SecretsService.GROQ_KEY);
+    }
+    async storeKimiKey(key) {
+        await this.context.secrets.store(SecretsService.KIMI_KEY, key);
+    }
+    async getKimiKey() {
+        return this.context.secrets.get(SecretsService.KIMI_KEY);
+    }
+    async deleteKimiKey() {
+        await this.context.secrets.delete(SecretsService.KIMI_KEY);
+    }
+    async storeDbPassword(dbId, pw) {
+        await this.context.secrets.store(`${SecretsService.DB_PREFIX}${dbId}`, pw);
+    }
+    async getDbPassword(dbId) {
+        return this.context.secrets.get(`${SecretsService.DB_PREFIX}${dbId}`);
+    }
+    async deleteDbPassword(dbId) {
+        await this.context.secrets.delete(`${SecretsService.DB_PREFIX}${dbId}`);
+    }
+    async getActiveApiKey() {
+        const provider = vscode.workspace
+            .getConfiguration('verbis')
+            .get('llm.provider', 'gemini');
+        if (provider === 'groq')
+            return this.getGroqKey();
+        if (provider === 'kimi')
+            return this.getKimiKey();
+        return this.getGeminiKey();
+    }
+}
+exports.SecretsService = SecretsService;
+//# sourceMappingURL=SecretsService.js.map

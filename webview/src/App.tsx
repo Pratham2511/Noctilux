@@ -2,99 +2,35 @@
 // App.tsx — Root component: routes between Chat / Schema / Tree / Glossary
 // ============================================================================
 import { useEffect, useState } from 'react';
-import ChatPanel from './components/ChatPanel';
-import ResultTable from './components/ResultTable';
-import ConfidenceBar from './components/ConfidenceBar';
-import NarrativeCard from './components/NarrativeCard';
 import QueryTreeView from './components/QueryTreeView';
 import GlossaryEditor from './components/GlossaryEditor';
 import ConnectionForm from './components/ConnectionForm';
 import { ApiKeySettings } from './components/ApiKeySettings';
 import { SchemaCreator } from './components/SchemaCreator';
 import RobustnessReport from './components/RobustnessReport';
-import MessageBubble from './components/MessageBubble';
-import SQLCodeBlock from './components/SQLCodeBlock';
-import type { ChatMessage, BackendStatus } from '../../src/types';
-import { onMessage, postMessage } from './vscode';
+import type { BackendStatus } from '../../src/types';
+import { onMessage } from './vscode';
 
-type Tab = 'chat' | 'schema' | 'createdb' | 'tree' | 'glossary' | 'robustness' | 'connections';
+type Tab = 'schema' | 'createdb' | 'tree' | 'glossary' | 'robustness' | 'connections';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('chat');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>('connections');
   const [backendStatus, setBackendStatus] = useState<BackendStatus>({ state: 'starting' });
 
   useEffect(() => {
     const off = onMessage(msg => {
-      switch (msg.type) {
-        case 'SQL_GENERATED': {
-          const p = msg.payload as any;
-          const assistantMsg: ChatMessage = {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            content: p.explanation || 'Here is the SQL I generated.',
-            timestamp: Date.now(),
-            metadata: {
-              sql: p.sql,
-              confidence: p.confidence,
-              alternatives: p.alternatives,
-              narrative: p.narrative,
-              planExplanation: p.planExplanation,
-              ambiguityQuestions: p.ambiguityQuestions,
-              queryNodeId: p.queryNodeId,
-            },
-          };
-          setMessages(prev => [...prev, assistantMsg]);
-          break;
-        }
-        case 'EXECUTION_COMPLETE': {
-          // Attach execution result to the last assistant message
-          setMessages(prev => {
-            const last = prev[prev.length - 1];
-            if (!last || last.role !== 'assistant') return prev;
-            const updated = {
-              ...last,
-              metadata: { ...last.metadata, executionResult: msg.payload as any },
-            };
-            return [...prev.slice(0, -1), updated];
-          });
-          break;
-        }
-        case 'BACKEND_STATUS':
-          setBackendStatus(msg.payload as BackendStatus);
-          break;
-        case 'ERROR':
-          setMessages(prev => [
-            ...prev,
-            {
-              id: `e-${Date.now()}`,
-              role: 'system',
-              content: `Error: ${(msg.payload as any).message}`,
-              timestamp: Date.now(),
-            },
-          ]);
-          break;
+      if (msg.type === 'BACKEND_STATUS') {
+        setBackendStatus(msg.payload as BackendStatus);
       }
     });
     return off;
   }, []);
 
-  const handleSend = (text: string, dbConfigId: string) => {
-    const userMsg: ChatMessage = {
-      id: `u-${Date.now()}`,
-      role: 'user',
-      content: text,
-      timestamp: Date.now(),
-    };
-    setMessages(prev => [...prev, userMsg]);
-    postMessage('GENERATE_SQL', { input: text, sessionId: 'default', dbConfigId });
-  };
-
   return (
     <div className="flex flex-col h-screen">
       {/* Top tab bar */}
       <nav className="flex border-b border-qm-border text-xs">
-        {(['chat', 'schema', 'createdb', 'tree', 'glossary', 'robustness', 'connections'] as Tab[]).map(tab => (
+        {(['schema', 'createdb', 'tree', 'glossary', 'robustness', 'connections'] as Tab[]).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -121,12 +57,8 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Tab content — chat needs a non-scrolling flex container so its
-          input row stays pinned to the bottom; other tabs scroll. */}
-      <div className={`flex-1 min-h-0 ${activeTab === 'chat' ? 'flex flex-col overflow-hidden' : 'overflow-auto'}`}>
-        {activeTab === 'chat' && (
-          <ChatPanel messages={messages} onSend={handleSend} />
-        )}
+      {/* Tab content */}
+      <div className="flex-1 min-h-0 overflow-auto">
         {activeTab === 'schema' && <SchemaPlaceholderView />}
         {activeTab === 'createdb' && <SchemaCreator />}
         {activeTab === 'tree' && <QueryTreeView />}

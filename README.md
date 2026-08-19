@@ -7,11 +7,26 @@
 
 Verbis is an LLM-based intelligent database assistant delivered as a VS Code desktop extension. It generates, optimizes, validates, and executes SQL (and NoSQL) queries, explains results, monitors performance continuously, enforces enterprise-grade privacy, and learns from user behavior — all within the developer's existing workspace.
 
-The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq** and **Ollama (local)** are also supported, and API keys from **any provider — Gemini, Claude, Kimi, OpenAI, and others — are accepted** without format restrictions. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
+The default LLM provider is **Google Gemini 2.5 Flash** (free tier available — see [Get a free API key](https://aistudio.google.com/app/apikey)). **Groq**, **Kimi (Moonshot AI — Kimi K3)**, and **Ollama (local)** are also supported, and API keys from **any provider — Gemini, Claude, Kimi, OpenAI, and others — are accepted** without format restrictions. Your API key is stored in the OS keychain via VS Code SecretStorage and is **never written to any file on disk**.
 
 ---
 
-## 🆕 What's New in v1.1.x
+## 🆕 What's New in v1.2.0
+
+### v1.2.0 — Terminal assistant (Claude Code–style) replaces the webview chat
+
+The conversational interface is now a **REPL hosted in VS Code's integrated terminal** (via the `Pseudoterminal` API) — the same style of experience as Claude Code — instead of a React webview chat.
+
+- **New:** `Verbis: Open Assistant` (`Ctrl+Shift+Q`) opens the assistant terminal. Re-running it focuses the existing terminal rather than spawning duplicates.
+- **Real terminal behavior:** live typing, cursor, backspace, Enter to send, **Ctrl+C to cancel** the in-flight request (or clear the line when idle).
+- **Slash commands handled locally:** `/help` `/run` `/status` `/model` `/history` `/clear` `/reset` `/cancel` `/exit` — they never reach the backend.
+- **One request at a time:** while the agent is working, further Enter presses are ignored with a notice; Ctrl+C cancels.
+- **Conversation context preserved** per terminal via a stable `sessionId` forwarded to the backend on every turn; `/reset` starts a fresh session.
+- **Generation vs. execution stay distinct:** the agent generates SQL; `/run` explicitly executes the last generated statement through the existing execution path (row limits, read-only guard, history logging).
+- **New provider — Kimi (Moonshot AI):** select `kimi` to route through Moonshot's OpenAI-compatible endpoint, defaulting to the **Kimi K3** model (`verbis.llm.kimiModel`). Key stored in SecretStorage via `Verbis: Set API Key`.
+- **Removed from the main flow:** the `verbis.chatView` sidebar webview, the `Verbis: Open Chat` / `Verbis: Open Chat in Editor Panel` commands, and the webview chat tab. Backend, connections, schema/history trees, settings, and API-key commands are unchanged.
+
+**Architecture:** the terminal is a thin I/O layer. All agent intelligence lives in a new UI-independent `AssistantSession` (`src/assistant/AssistantSession.ts`) that delegates to the existing `BackendClient` pipeline — no SQL logic is duplicated in the UI.
 
 ### v1.1.5 — Sidebar chat (Copilot-Chat-style)
 
@@ -404,7 +419,7 @@ Then set `verbis.llm.provider` to `local` in VS Code settings. No API key is req
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Shift+Q` / `Cmd+Shift+Q` | Open Chat Panel |
+| `Ctrl+Shift+Q` / `Cmd+Shift+Q` | Open Assistant (terminal) |
 | `Ctrl+Shift+R` / `Cmd+Shift+R` | Run Last Query |
 | `Ctrl+Shift+S` / `Cmd+Shift+S` | Show Schema / ER Diagram |
 | `Ctrl+Shift+T` / `Cmd+Shift+T` | Open Query Tree (DAG) |
@@ -415,8 +430,8 @@ Then set `verbis.llm.provider` to `local` in VS Code settings. No API key is req
 
 | Command | Purpose |
 |---------|---------|
-| `Verbis: Open Chat Panel` | Open the main NL→SQL chat webview |
-| `Verbis: Set API Key` | Set or replace your Gemini / Groq API key |
+| `Verbis: Open Assistant` | Open the conversational assistant in the integrated terminal |
+| `Verbis: Set API Key` | Set or replace your Gemini / Groq / Kimi API key |
 | `Verbis: Remove API Key` | Remove the stored key from the OS keychain |
 | `Verbis: Show Schema & ER Diagram` | Open the schema explorer panel |
 | `Verbis: Open Query Tree` | Open the ReactFlow DAG of query history |

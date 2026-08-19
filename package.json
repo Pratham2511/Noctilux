@@ -2,7 +2,7 @@
   "name": "verbis-db-assistant",
   "displayName": "Verbis — Intelligent Database Assistant",
   "description": "Talk to any database in plain English. Verbis converts natural language into optimized SQL and NoSQL queries, explains results, tracks query history, and protects your data — all inside VS Code.",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "publisher": "pratham2511",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -59,11 +59,6 @@
     "views": {
       "verbis-explorer": [
         {
-          "id": "verbis.chatView",
-          "name": "Chat",
-          "type": "webview"
-        },
-        {
           "id": "verbis.connections",
           "name": "Connections"
         },
@@ -79,20 +74,17 @@
     },
     "commands": [
       {
+        "command": "verbis.openAssistant",
+        "title": "Verbis: Open Assistant",
+        "icon": "$(comment-discussion)"
+      },
+      {
         "command": "verbis.installBackend",
         "title": "Verbis: Install / Reinstall Backend"
       },
       {
         "command": "verbis.selectConnection",
         "title": "Verbis: Select Database Connection"
-      },
-      {
-        "command": "verbis.openChat",
-        "title": "Verbis: Open Chat"
-      },
-      {
-        "command": "verbis.openChatPanel",
-        "title": "Verbis: Open Chat in Editor Panel"
       },
       {
         "command": "verbis.setApiKey",
@@ -133,7 +125,7 @@
     ],
     "keybindings": [
       {
-        "command": "verbis.openChat",
+        "command": "verbis.openAssistant",
         "key": "ctrl+shift+q",
         "mac": "cmd+shift+q"
       },
@@ -161,10 +153,16 @@
           "enum": [
             "gemini",
             "groq",
+            "kimi",
             "local"
           ],
           "default": "gemini",
-          "description": "LLM provider. Gemini recommended — free tier at aistudio.google.com."
+          "description": "LLM provider. Gemini recommended — free tier at aistudio.google.com. Kimi routes to Moonshot AI (Kimi K3)."
+        },
+        "verbis.llm.kimiModel": {
+          "type": "string",
+          "default": "kimi-k3",
+          "description": "Moonshot AI model to use when provider is kimi."
         },
         "verbis.llm.geminiModel": {
           "type": "string",
