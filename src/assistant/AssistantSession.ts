@@ -21,7 +21,7 @@ import { ExecutionResult } from '../types';
 // ─── Result types surfaced to the UI layer ────────────────────────────────
 
 export interface AssistantReply {
-  kind: 'sql' | 'message' | 'error' | 'cancelled';
+  kind: 'sql' | 'message' | 'offtopic' | 'error' | 'cancelled';
   /** Generated SQL, when kind === 'sql'. */
   sql?: string;
   /** Plain-English explanation from the backend. */
@@ -345,6 +345,16 @@ export class AssistantSession {
         return { kind: 'cancelled', message: 'Request cancelled.', wasCancelled: true };
       }
 
+      // Scope restriction: the intent guard rejected this as off-topic.
+      // Surface the polite refusal — never as a fake SQL success, and never
+      // touch the previously stored executable SQL.
+      if (res.offtopic) {
+        const msg = res.message
+          ?? "I'm Verbis — a database assistant. I can only help with database/SQL questions.";
+        this.history.push({ role: 'assistant', content: msg, timestamp: Date.now() });
+        return { kind: 'offtopic', message: msg };
+      }
+
       // Ambiguity: backend wants clarification before producing SQL.
       if (res.ambiguityQuestions && res.ambiguityQuestions.length > 0) {
         const msg = res.ambiguityQuestions
@@ -358,10 +368,19 @@ export class AssistantSession {
         };
       }
 
+      // Informational / explanatory response with no executable SQL.
+      // Display it as a message — do NOT pretend SQL is ready to run.
+      if (!res.sql) {
+        const msg = res.explanation ?? res.message ?? '(no SQL generated)';
+        this.history.push({ role: 'assistant', content: msg, timestamp: Date.now() });
+        return { kind: 'message', message: msg };
+      }
+
+      // Real SQL was generated.
       const confidencePct = Math.round((res.confidence ?? 0) * 100);
       this.history.push({
         role: 'assistant',
-        content: res.sql ?? res.explanation ?? '(no output)',
+        content: res.sql,
         timestamp: Date.now(),
       });
 

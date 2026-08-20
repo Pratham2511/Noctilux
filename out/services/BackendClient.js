@@ -87,7 +87,21 @@ class BackendClient {
             session_id: payload.sessionId,
             db_config_id: payload.dbConfigId,
         };
-        return this.requestJson('/api/generate', 'POST', backendPayload);
+        // The backend returns the generated SQL under `query` (NOT `sql`), and
+        // signals off-topic rejections with `offtopic: true` + `message`.
+        const raw = await this.requestJson('/api/generate', 'POST', backendPayload);
+        return {
+            sql: raw.query ?? undefined,
+            confidence: raw.confidence ?? 0,
+            alternatives: raw.alternatives ?? [],
+            explanation: raw.explanation,
+            narrative: raw.narrative,
+            planExplanation: raw.planExplanation,
+            ambiguityQuestions: raw.ambiguityQuestions,
+            queryNodeId: raw.queryNodeId,
+            offtopic: raw.offtopic,
+            message: raw.message,
+        };
     }
     // ─── SQL Execution ──────────────────────────────────────────────────
     async execute(payload) {

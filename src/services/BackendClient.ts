@@ -108,14 +108,19 @@ export class BackendClient {
     provider?: string;   // 'gemini' | 'groq' | 'local' — from verbis.llm.provider
     model?: string;      // user-configured model — from verbis.llm.geminiModel / groqModel
   }): Promise<{
-    sql: string;
+    /** Generated SQL, normalized from the backend's `query` field. Undefined when off-topic. */
+    sql?: string;
     confidence: number;
     alternatives: Array<{ sql: string; interpretation: string; confidence: number }>;
-    explanation: string;
+    explanation?: string;
     narrative?: string;
     planExplanation?: string;
     ambiguityQuestions?: Array<{ id: string; question: string; options: string[] }>;
     queryNodeId?: string;
+    /** True when the intent guard rejected the request as off-topic. */
+    offtopic?: boolean;
+    /** Polite off-topic / informational message from the backend. */
+    message?: string;
   }> {
     // Translate our internal field names to the Python backend's expected
     // request body shape (per python_backend/models/requests.py).
@@ -132,7 +137,33 @@ export class BackendClient {
       session_id: payload.sessionId,
       db_config_id: payload.dbConfigId,
     };
-    return this.requestJson('/api/generate', 'POST', backendPayload);
+    // The backend returns the generated SQL under `query` (NOT `sql`), and
+    // signals off-topic rejections with `offtopic: true` + `message`.
+    const raw = await this.requestJson<{
+      query?: string | null;
+      confidence?: number;
+      alternatives?: Array<{ sql: string; interpretation: string; confidence: number }>;
+      explanation?: string;
+      narrative?: string;
+      planExplanation?: string;
+      ambiguityQuestions?: Array<{ id: string; question: string; options: string[] }>;
+      queryNodeId?: string;
+      offtopic?: boolean;
+      message?: string;
+    }>('/api/generate', 'POST', backendPayload);
+
+    return {
+      sql: raw.query ?? undefined,
+      confidence: raw.confidence ?? 0,
+      alternatives: raw.alternatives ?? [],
+      explanation: raw.explanation,
+      narrative: raw.narrative,
+      planExplanation: raw.planExplanation,
+      ambiguityQuestions: raw.ambiguityQuestions,
+      queryNodeId: raw.queryNodeId,
+      offtopic: raw.offtopic,
+      message: raw.message,
+    };
   }
 
   // ─── SQL Execution ──────────────────────────────────────────────────

@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.3] — 2026-08-20
+
+Terminal assistant response-flow and scope-handling fixes.
+
+### Fixed
+
+- Generated SQL is now correctly normalized from the backend `query` field,
+  preserved as the latest executable SQL, and used by `/run`.
+- The terminal no longer claims SQL is ready when no executable SQL was
+  returned.
+- Off-topic and unrelated prompts are handled separately, without fake
+  confidence, SQL success, or `/run` guidance, and do not overwrite valid
+  previously generated SQL.
+
+### Improved
+
+- Generated SQL is visibly displayed before execution guidance.
+- Terminal states are clearer for SQL, informational, unrelated, and backend
+  error responses.
+- `/run` with unsupported arguments now explains that it executes the most
+  recently generated SQL.
+- README usage and scope documentation reflect the current terminal behavior.
+
 ## [1.2.2] — 2026-08-20
 
 Gemini model retirement fix + documentation overhaul.

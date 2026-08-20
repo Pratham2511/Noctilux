@@ -55,14 +55,15 @@ export declare class BackendClient {
         provider?: string;
         model?: string;
     }): Promise<{
-        sql: string;
+        /** Generated SQL, normalized from the backend's `query` field. Undefined when off-topic. */
+        sql?: string;
         confidence: number;
         alternatives: Array<{
             sql: string;
             interpretation: string;
             confidence: number;
         }>;
-        explanation: string;
+        explanation?: string;
         narrative?: string;
         planExplanation?: string;
         ambiguityQuestions?: Array<{
@@ -71,6 +72,10 @@ export declare class BackendClient {
             options: string[];
         }>;
         queryNodeId?: string;
+        /** True when the intent guard rejected the request as off-topic. */
+        offtopic?: boolean;
+        /** Polite off-topic / informational message from the backend. */
+        message?: string;
     }>;
     execute(payload: {
         sql: string;

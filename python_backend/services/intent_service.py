@@ -89,6 +89,16 @@ _OFFTOPIC_SIGNALS = re.compile(
     re.IGNORECASE,
 )
 
+# Greetings / small talk — whole-message match only, so a greeting embedded in
+# a real data question ("hi, show me all users") still falls through to the
+# DB-signal / LLM path. Matched against the FULL stripped message.
+_SMALL_TALK = re.compile(
+    r"^\s*(hi+|hello+|hey+|yo|hiya|howdy|good\s+(morning|afternoon|evening)|"
+    r"what'?s\s+up|how\s+are\s+you|thanks?|thank\s+you|bye|goodbye|ok|okay|"
+    r"who\s+are\s+you|what\s+are\s+you|help)\s*[.!?]*\s*$",
+    re.IGNORECASE,
+)
+
 
 def _deterministic_intent(user_message: str) -> Optional[str]:
     """
@@ -105,6 +115,9 @@ def _deterministic_intent(user_message: str) -> Optional[str]:
     if _DB_SIGNALS.search(msg):
         return "DATABASE"
     if _OFFTOPIC_SIGNALS.search(msg):
+        return "OFFTOPIC"
+    # Pure greeting / small talk with no DB signal — deterministic reject.
+    if _SMALL_TALK.match(msg):
         return "OFFTOPIC"
     return None
 

@@ -3,7 +3,7 @@ import { SecretsService } from '../services/SecretsService';
 import { WorkspaceService } from '../services/WorkspaceService';
 import { ExecutionResult } from '../types';
 export interface AssistantReply {
-    kind: 'sql' | 'message' | 'error' | 'cancelled';
+    kind: 'sql' | 'message' | 'offtopic' | 'error' | 'cancelled';
     /** Generated SQL, when kind === 'sql'. */
     sql?: string;
     /** Plain-English explanation from the backend. */

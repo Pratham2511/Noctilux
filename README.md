@@ -70,8 +70,8 @@ cd python_backend && pip install -r requirements.txt && cd ..
 The assistant runs in the VS Code **integrated terminal**.
 
 - **Open:** `Verbis: Open Assistant` from the Command Palette, or press `Ctrl+Shift+Q` / `Cmd+Shift+Q`. Re-running it focuses the existing assistant terminal instead of spawning duplicates.
-- **Type** a natural-language question and press **Enter**. Verbis generates SQL and shows it with a confidence score.
-- **Run** the generated SQL with `/run`.
+- **Type** a natural-language database question and press **Enter**. Verbis displays the generated SQL before showing its confidence score and `/run` guidance.
+- **Run** the most recently generated SQL with `/run`. `/run` does not accept a natural-language argument; ask the question first, then run `/run`.
 - **Cancel** an in-flight request with `Ctrl+C` (or `/cancel`). When idle, `Ctrl+C` clears the current line.
 - **One request at a time:** while Verbis is working, further Enter presses are ignored with a notice.
 
@@ -174,7 +174,7 @@ Cancelling aborts the request — a stored key is never consumed silently. `/sta
 
 Verbis only answers database questions. A two-layer guard runs before any SQL generation:
 
-1. **Deterministic pre-filter** — obvious off-topic requests (jokes, poems, weather, general chit-chat) are rejected instantly with zero API cost; obvious database questions skip the classifier entirely.
+1. **Deterministic pre-filter** — obvious off-topic requests (jokes, poems, weather, greetings, and general chit-chat) are rejected instantly with zero API cost; obvious database questions skip the classifier entirely.
 2. **Few-shot LLM classifier** — ambiguous input falls through to a lightweight classifier. It **fails open** (treats input as database-related) so a valid query is never blocked by a classifier hiccup.
 
 Off-topic requests get a polite refusal and produce no SQL and no LLM generation cost. Classifications are cached (200-entry LRU) and the cache is cleared automatically when you set/clear an API key or switch provider.

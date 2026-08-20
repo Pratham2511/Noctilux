@@ -167,6 +167,7 @@ class VerbisTerminal {
     renderReply(reply) {
         switch (reply.kind) {
             case 'sql': {
+                // SQL was actually generated — store it and show it before /run guidance.
                 if (reply.sql) {
                     this.lastSql = reply.sql;
                     this.writeln(c(ANSI.fgGreen + ANSI.bold, 'SQL:'));
@@ -183,9 +184,17 @@ class VerbisTerminal {
                 if (reply.alternatives && reply.alternatives.length > 0) {
                     this.writeln(c(ANSI.fgGray, `${reply.alternatives.length} alternative interpretation(s) available.`));
                 }
-                this.writeln(c(ANSI.fgGray, 'Type /run to execute, or keep chatting.'));
+                // Only offer /run when there is real executable SQL stored.
+                if (reply.sql) {
+                    this.writeln(c(ANSI.fgGray, 'Type /run to execute, or keep chatting.'));
+                }
                 break;
             }
+            case 'offtopic':
+                // Scope rejection — polite refusal, no fake confidence, no /run guidance.
+                this.writeln(c(ANSI.fgYellow, reply.message
+                    ?? 'Verbis is restricted to database/SQL-related assistance.'));
+                break;
             case 'message':
                 if (reply.message) {
                     this.writeln(reply.message);
@@ -237,6 +246,13 @@ class VerbisTerminal {
                 }
                 break;
             case '/run':
+                if (arg.length > 0) {
+                    // /run does not take a natural-language argument — it only executes
+                    // the most recently generated SQL.
+                    this.writeln(c(ANSI.fgYellow, '/run executes the most recently generated SQL. Ask your question first, then run /run.'));
+                    this.prompt();
+                    return;
+                }
                 await this.runLastSql();
                 return; // runLastSql prints the prompt when done
             case '/exit':
