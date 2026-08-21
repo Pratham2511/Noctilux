@@ -115,7 +115,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     backendDir,
     workspaceRoot,
     installer.pythonExe,
-    startPort
+    startPort,
+    async () => {
+      const envVars: Record<string, string> = {};
+      try {
+        if (workspaceService && secretsService) {
+          const cfg = await workspaceService.readConfig();
+          for (const conn of cfg.connections) {
+            const pw = await secretsService.getDbPassword(conn.id);
+            if (pw) {
+              envVars[`QM_DB_PASSWORD_${conn.id}`] = pw;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load DB passwords for backend env', err);
+      }
+      return envVars;
+    }
   );
 
   // Fire-and-forget — don't block activation on backend ready
@@ -303,6 +320,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         port: parseInt(portStr || '5432', 10), database, user,
       });
       await workspaceService.writeConfig(cfg);
+      connectionsProvider?.refresh();
+      
+      if (backendManager) {
+        await backendManager.restart();
+        vscode.window.showInformationMessage('Connection added. Backend restarted to apply changes.');
+      }
       // Fix D + Fix G: auto-set the new connection as active.
       // `id` is the existing variable declared above as `const id = crypto.randomUUID()`.
       // Do NOT invent a new variable name — use `id` directly.

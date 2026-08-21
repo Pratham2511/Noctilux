@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.5] — 2026-08-21
+
+Backend connection registration fix.
+
+### Fixed
+
+- **Root cause:** The extension spawned the Python backend process without providing the secure database passwords, and the backend initialized an empty connection pool without reading the user's saved connections from `.qmind/config.json`. This resulted in `404 (No DB connection registered)` errors when calling `/run` or other execution routes.
+- **Fix:** `BackendManager` now reads the connections and passwords securely from VS Code's `SecretStorage` and injects them as environment variables (`QM_DB_PASSWORD_<id>`) when spawning the Python process. The Python backend's `dependencies.py` now parses `.qmind/config.json` on startup and correctly populates the connection pool. Added an automatic backend restart when adding a new connection so it takes effect immediately.
+
 ## [1.2.4] — 2026-08-21
 
 Backend execution contract fix + enhanced diagnostics.

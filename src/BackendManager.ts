@@ -32,7 +32,8 @@ export class BackendManager extends EventEmitter {
     private readonly backendDir: string,
     private readonly workspacePath: string,
     private readonly pythonExe: string,           // ← from BackendInstaller
-    private readonly startPort: number = 8765
+    private readonly startPort: number = 8765,
+    private readonly getEnvVars?: () => Promise<Record<string, string>>
   ) {
     super();
   }
@@ -55,10 +56,11 @@ export class BackendManager extends EventEmitter {
     this.client = new BackendClient(`http://127.0.0.1:${this.port}`);
 
     // Spawn Python process using the resolved pythonExe from BackendInstaller
+    const extraEnv = this.getEnvVars ? await this.getEnvVars() : {};
     this.process = spawn(
       this.pythonExe,
       [this.backendScriptPath, '--port', String(this.port), '--workspace', this.workspacePath],
-      { cwd: this.backendDir, env: { ...process.env }, detached: false }
+      { cwd: this.backendDir, env: { ...process.env, ...extraEnv }, detached: false }
     );
 
     this.process.on('exit', (code, signal) => {

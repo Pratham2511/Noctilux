@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict
+import json
+import os
 
 from config import Settings
 from core.db_pool import DBPoolManager
@@ -45,10 +47,41 @@ def init_app_state(settings: Settings) -> AppState:
     workspace = settings.workspace_path / '.qmind'
     workspace.mkdir(parents=True, exist_ok=True)
 
+    db_pools = DBPoolManager()
+    
+    # Load connections from config.json and register them
+    config_path = workspace / 'config.json'
+    if config_path.exists():
+        try:
+            from loguru import logger
+            from core.db_pool import build_connection_url
+            
+            config = json.loads(config_path.read_text())
+            for conn in config.get('connections', []):
+                db_id = conn.get('id')
+                # Password is provided by the TS extension during startup
+                password = os.environ.get(f'QM_DB_PASSWORD_{db_id}', '')
+                try:
+                    url = build_connection_url(
+                        dialect=conn.get('dialect', ''),
+                        host=conn.get('host', ''),
+                        port=conn.get('port', 0),
+                        database=conn.get('database', ''),
+                        user=conn.get('user', ''),
+                        password=password
+                    )
+                    db_pools.register(db_id, url)
+                    logger.info(f"Registered connection {db_id}")
+                except Exception as e:
+                    logger.error(f"Failed to register connection {db_id}: {e}")
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"Failed to parse config.json: {e}")
+
     return AppState(
         settings=settings,
         workspace_path=workspace,
-        db_pools=DBPoolManager(),
+        db_pools=db_pools,
         memory_store=MemoryStore(workspace / 'memory.json'),
         history_store=HistoryStore(workspace / 'history.json', workspace / 'query_tree.json'),
         rag=RAGService(persist_dir=str(settings.chroma_path)),
