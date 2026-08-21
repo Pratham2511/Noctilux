@@ -426,11 +426,8 @@ export class AssistantSession {
       const rowLimit = vscode.workspace
         .getConfiguration('verbis')
         .get<number>('query.rowLimit', 500);
-      const timeoutSeconds = vscode.workspace
-        .getConfiguration('verbis')
-        .get<number>('execution.timeoutSeconds', 60);
 
-      const result = await client.execute({ sql, dbConfigId, rowLimit, timeoutSeconds });
+      const result = await client.execute({ sql, dbConfigId, rowLimit });
 
       if (this.abortController.signal.aborted) {
         return { kind: 'cancelled', message: 'Execution cancelled.' };

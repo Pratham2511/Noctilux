@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.4] — 2026-08-21
+
+Backend execution contract fix + enhanced diagnostics.
+
+### Fixed
+
+- Corrected the `/run` execution payload mapping (`dbConfigId` → `connection_id`, `rowLimit` → `row_limit`) to match the backend's strict Pydantic requirements. This resolves the `422 Unprocessable Entity (Field required)` error on query execution.
+- Removed the unused `timeoutSeconds` parameter from the client execution payload (timeouts are governed server-side).
+
+### Improved
+
+- Enhanced the backend HTTP client error diagnostics to explicitly surface FastAPI Pydantic validation field locations (e.g., `body → connection_id: Field required`) instead of a generic "Field required" message.
+
 ## [1.2.3] — 2026-08-20
 
 Terminal assistant response-flow and scope-handling fixes.

@@ -171,9 +171,14 @@ export class BackendClient {
     sql: string;
     dbConfigId: string;
     rowLimit?: number;
-    timeoutSeconds?: number;
   }): Promise<ExecutionResult> {
-    return this.requestJson('/api/execute', 'POST', payload);
+    // Translate to the Python backend's ExecuteRequest field names
+    // (snake_case per python_backend/models/requests.py).
+    return this.requestJson('/api/execute', 'POST', {
+      sql: payload.sql,
+      connection_id: payload.dbConfigId,
+      row_limit: payload.rowLimit ?? 500,
+    });
   }
 
   // ─── Schema Introspection + ChromaDB Indexing ───────────────────────
@@ -250,7 +255,10 @@ export class BackendClient {
         if (res.status >= 500) {
           throw new BackendClientError(`Backend error: ${detail}`, 'server', res.status);
         }
-        throw new BackendClientError(`Request failed (${res.status}): ${detail}`, 'unknown', res.status);
+        throw new BackendClientError(
+          `Request failed (${res.status}) on ${method} ${path}: ${detail}`,
+          'unknown', res.status,
+        );
       }
 
       return (await res.json()) as T;
@@ -281,8 +289,15 @@ export class BackendClient {
         if (typeof d === 'string') { return d; }
         if (Array.isArray(d)) {
           // FastAPI validation errors: [{loc, msg, type}, ...]
+          // Include location info so the user can see WHICH field failed.
           return d
-            .map((e: any) => e?.msg ?? JSON.stringify(e))
+            .map((e: any) => {
+              const loc = Array.isArray(e?.loc)
+                ? e.loc.join(' → ')
+                : undefined;
+              const msg = e?.msg ?? JSON.stringify(e);
+              return loc ? `${loc}: ${msg}` : msg;
+            })
             .join('; ');
         }
         return JSON.stringify(d);

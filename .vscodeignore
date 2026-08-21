@@ -32,3 +32,4 @@ tsconfig.eslint.json
 !README.md
 !CHANGELOG.md
 .github/**
+.qmind/**
